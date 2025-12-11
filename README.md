@@ -8,8 +8,8 @@ Load-Balance-Driver, wrapper of mysql-jdbc-driver, suitable for use in databases
 ## 简介
 
 * 参考了网易内部分库分表中间件DDB的LBDriver的代码，但是重写了代码，从而适配更一般的场景
-* 适用于需要业务直连sql-proxy，而非通过nlb，使得负载均衡的逻辑从nlb下沉到driver层
-* 优点是使得sql-proxy的负载更均衡，且通过减少网络链路，降低rt
+* 适用于需要业务直连sql-proxy，而非通过负载均衡器（nlb/slb），使得负载均衡的逻辑从nlb/slb下沉到driver层
+* 优点是使得sql-proxy的负载更均衡，且通过减少网络链路，降低rt，避免负载均衡器（nlb/slb）成为性能瓶颈
 * 仅依赖slf4j-api和mysql-connector-java，没有其他依赖
 * 适用于oceanbase、tidb等
 
