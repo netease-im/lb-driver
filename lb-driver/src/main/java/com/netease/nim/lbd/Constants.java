@@ -14,8 +14,4 @@ public class Constants {
 
     public static final String MYSQL_DRIVER_URL_PREFIX = "jdbc:mysql://";
 
-    public static final String USER_PROPERTY_KEY = "user";
-
-    public static final String PASSWORD_PROPERTY_KEY = "password";
-
 }

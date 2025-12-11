@@ -34,6 +34,9 @@ public class RealConnection {
         if (!isHealthy) {
             throw lastException != null ? lastException : new SQLException("sync creating connection failed.");
         }
+        if (isClosed) {
+            throw new SQLException("connection is closed.");
+        }
         synchronized (this) {
             if (physicalConnection == null) {
                 try {
