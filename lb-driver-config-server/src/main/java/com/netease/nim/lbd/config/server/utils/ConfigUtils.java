@@ -94,7 +94,7 @@ public class ConfigUtils {
     public static boolean checkHostPort(String host, int port) {
         try (Socket socket = new Socket()) {
             try {
-                int timeout = 10000;
+                int timeout = 1000;
                 socket.connect(new InetSocketAddress(host, port), timeout);
                 return true;
             } catch (Exception e) {

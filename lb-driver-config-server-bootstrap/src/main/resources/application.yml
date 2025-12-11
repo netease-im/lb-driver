@@ -39,3 +39,4 @@ lbd-driver-config-server:
   config-type: local
   config:
     "local.config.file": "config.json"
+#    "local.config.file.path": "/xxx/xxx/config.json"

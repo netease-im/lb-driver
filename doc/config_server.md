@@ -6,7 +6,10 @@
 
 ### config-server的部署
 
-todo
+* 下载jar包，地址：xxx；或者自行编译 `lb-driver-config-server-bootstrap`
+* 参考 [application.yml](../lb-driver-config-server-bootstrap/src/main/resources/application.yml) 修改成适合你自己的 `application.yml`
+* 参考 [logback-example.xml](../lb-driver-config-server-bootstrap/src/main/resources/logback-example.xml) 修改成适合你自己的 `logback.xml`
+* 参考 [startup.sh](startup.sh) 修改：java_home、jar包路径、application路径、logback.xml路径等，随后启动即可
 
 ### 使用etcd作为数据源
 
@@ -82,7 +85,7 @@ lbd-driver-config-server:
 ```
 
 * `auth.enable` 表示lbd-driver请求config-server时是否鉴权，默认false
-* `auth_config` 表示鉴权的api-key，支持多个
+* `api.keys` 表示鉴权的api-key，支持多个
 * `proxy_config` 表示配置的sql-proxy节点列表
 * `schema` 表示sql-proxy归属的schema
 
