@@ -1,6 +1,6 @@
 # lb-driver
 
-Load-Balance driver wrapper of mysql-jdbc-driver for proxy-based database, such as OceanBase, TiDB, etc.
+Load-Balance-Driver, wrapper of mysql-jdbc-driver, suitable for use in databases with proxy architecture, such as OceanBase, TiDB, etc.
 
 ![GitHub](https://img.shields.io/badge/license-MIT-blue.svg)
 ![java_language](https://img.shields.io/badge/java--language-1.8%20%7C%2021-blue.svg)
