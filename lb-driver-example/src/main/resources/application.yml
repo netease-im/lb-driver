@@ -1,0 +1,45 @@
+
+server:
+  port: 8081
+spring:
+  application:
+    name: lb-driver-example
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    druid:
+      driver-class-name: com.netease.nim.lbd.LBDriver
+#      driver-class-name: com.mysql.jdbc.Driver
+#      url: jdbc:mysql://10.59.129.154:2883/test_lbd?connectTimeout=5000&socketTimeout=10000
+#      username: test_lbd_rw@nim_test#nim_ob_test
+#      password: gvu57FgjnDsFzJF
+#      url: jdbc:mysql://nim-test-31591.rds.cn-gz-p1.internal.:3331/test_lbd?connectTimeout=5000&socketTimeout=10000
+#      username: test_lbd_rw
+#      password: test_lbd_rw123
+#      url: jdbc:mysql:lb:local://10.59.129.154:2883,10.59.129.155:2883/test_lbd?connectTimeout=5000&socketTimeout=10000&logStats=true
+#      username: test_lbd_rw@nim_test#nim_ob_test
+#      password: gvu57FgjnDsFzJF
+      url: jdbc:mysql:lb:remote://127.0.0.1:8080/test_lbd?connectTimeout=5000&socketTimeout=10000&configServerApiKey=aaaa&configServerSchema=im_user&logStats=true
+      username: test_lbd_rw@nim_test#nim_ob_test
+      password: gvu57FgjnDsFzJF
+      pool-prepared-statements: false
+      exception-sorter-class-name: com.alibaba.druid.pool.vendor.MySqlExceptionSorter
+      max-pool-prepared-statement-per-connection-size: 0
+      initial-size: 20
+      max-active: 50
+      min-idle: 20
+      max-wait: 6000
+      time-between-eviction-runs-millis: 60000
+      min-evictable-idle-time-millis: 300000
+      connection-properties: oracle.net.CONNECT_TIMEOUT=3000
+      validation-query: 'SELECT 1'
+      validation-query-timeout: 1
+      test-while-idle: true
+      keep-alive: true
+      stat-view-servlet:
+        enabled: false
+      web-stat-filter:
+        enabled: false
+      filter:
+        config:
+          enabled: false
+

@@ -1,0 +1,71 @@
+package com.netease.nim.lbd.util;
+
+import java.sql.SQLException;
+import java.sql.SQLRecoverableException;
+
+public class MySqlExceptionSorter {
+
+    public static boolean isExceptionFatal(SQLException e) {
+        if (e instanceof SQLRecoverableException) {
+            return true;
+        }
+
+        final String sqlState = e.getSQLState();
+        final int errorCode = e.getErrorCode();
+
+        if (sqlState != null && sqlState.startsWith("08")) {
+            return true;
+        }
+
+        switch (errorCode) {
+            // Communications Errors
+            case 1040: // ER_CON_COUNT_ERROR
+            case 1042: // ER_BAD_HOST_ERROR
+            case 1043: // ER_HANDSHAKE_ERROR
+            case 1047: // ER_UNKNOWN_COM_ERROR
+            case 1081: // ER_IPSOCK_ERROR
+            case 1129: // ER_HOST_IS_BLOCKED
+            case 1130: // ER_HOST_NOT_PRIVILEGED
+                // Authentication Errors
+            case 1045: // ER_ACCESS_DENIED_ERROR
+                // Resource errors
+            case 1004: // ER_CANT_CREATE_FILE
+            case 1005: // ER_CANT_CREATE_TABLE
+            case 1015: // ER_CANT_LOCK
+            case 1021: // ER_DISK_FULL
+            case 1041: // ER_OUT_OF_RESOURCES
+                // Out-of-memory errors
+            case 1037: // ER_OUTOFMEMORY
+            case 1038: // ER_OUT_OF_SORTMEMORY
+                // Access denied
+            case 1142: // ER_TABLEACCESS_DENIED_ERROR
+            case 1227: // ER_SPECIFIC_ACCESS_DENIED_ERROR
+                return true;
+            default:
+                break;
+        }
+
+        String className = e.getClass().getName();
+        if ("com.mysql.jdbc.CommunicationsException".equals(className)
+                || "com.mysql.jdbc.exceptions.jdbc4.CommunicationsException".equals(className)) {
+            return true;
+        }
+
+        String message = e.getMessage();
+        if (message != null && !message.isEmpty()) {
+            if (message.startsWith("Streaming result set com.mysql.jdbc.RowDataDynamic")
+                    && message.endsWith("is still active. No statements may be issued when any streaming result sets are open and in use on a given connection. Ensure that you have called .close() on any active streaming result sets before attempting more queries.")) {
+                return true;
+            }
+
+            final String errorText = message.toUpperCase();
+
+            return (errorCode == 0 && (errorText.contains("COMMUNICATIONS LINK FAILURE")) //
+                    || errorText.contains("COULD NOT CREATE CONNECTION")) //
+                    || errorText.contains("NO DATASOURCE") //
+                    || errorText.contains("NO ALIVE DATASOURCE");
+        }
+
+        return false;
+    }
+}

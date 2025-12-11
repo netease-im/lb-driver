@@ -1,0 +1,147 @@
+package com.netease.nim.lbd.config.server.controller;
+
+import com.alibaba.fastjson2.JSONObject;
+import com.netease.nim.lbd.config.server.conf.ConfigProperties;
+import com.netease.nim.lbd.config.server.conf.ConfigType;
+import com.netease.nim.lbd.config.server.conf.LogBean;
+import com.netease.nim.lbd.config.server.exception.AppException;
+import com.netease.nim.lbd.config.server.model.Config;
+import com.netease.nim.lbd.config.server.service.ConfigService;
+import com.netease.nim.lbd.config.server.service.EtcdConfigService;
+import com.netease.nim.lbd.config.server.service.LocalConfigService;
+import com.netease.nim.lbd.config.server.service.NacosConfigService;
+import com.netease.nim.lbd.config.server.utils.ConfigUtils;
+import com.netease.nim.lbd.config.server.utils.MD5Util;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+@RestController
+public class ConfigApiController implements InitializingBean {
+
+    private static final String Authorization = "Authorization";
+
+    private static final JSONObject not_modify = new JSONObject();
+    private static final JSONObject not_found = new JSONObject();
+    private static final JSONObject ok = new JSONObject();
+    private static final JSONObject error = new JSONObject();
+    static {
+        not_modify.put("code", 304);
+        not_found.put("code", 404);
+        ok.put("code", 200);
+        error.put("code", 500);
+    }
+
+    @Autowired
+    private ConfigProperties configProperties;
+
+    private ConfigService configService;
+
+    private String md5Cache;
+    private long md5CacheUpdateTime;
+
+    @GetMapping("/fetch_sql_proxy_list")
+    public JSONObject fetchSqlProxyList(HttpServletRequest request,
+                                        @RequestParam(value = "schema") String schema,
+                                        @RequestParam(value = "md5", required = false) String md5) {
+        LogBean.get().addProps("md5", md5);
+        LogBean.get().addProps("schema", schema);
+        //
+        auth(request);
+        //
+        if (md5 != null && md5Cache != null && Objects.equals(md5, md5Cache)
+                && System.currentTimeMillis() - md5CacheUpdateTime < 1000) {
+            LogBean.get().addProps("result", not_modify);
+            LogBean.get().addProps("md5.cache", true);
+            return not_modify;
+        }
+        //
+        Map<String, List<String>> proxyConfig = configService.getConfig().getProxyConfig();
+        List<String> sqlProxyLists = proxyConfig.get(schema);
+        if (sqlProxyLists == null) {
+            LogBean.get().addProps("result", not_found);
+            return not_found;
+        }
+        Collections.sort(sqlProxyLists);
+        String newMd5 = MD5Util.md5(JSONObject.toJSONString(sqlProxyLists));
+        this.md5Cache = newMd5;
+        this.md5CacheUpdateTime = System.currentTimeMillis();
+        if (Objects.equals(md5, newMd5)) {
+            LogBean.get().addProps("result", not_modify);
+            return not_modify;
+        }
+        JSONObject json = new JSONObject();
+        json.put("code", 200);
+        json.put("md5", newMd5);
+        json.put("data", sqlProxyLists);
+        LogBean.get().addProps("result", json);
+        return json;
+    }
+
+    @RequestMapping("/reload")
+    public JSONObject reload(HttpServletRequest request) {
+        //
+        auth(request);
+        //
+        boolean success = configService.reload();
+        if (success) {
+            return ok;
+        } else {
+            return error;
+        }
+    }
+
+    @RequestMapping("/monitor")
+    public JSONObject monitor() {
+        Config config = configService.getConfig();
+        return ConfigUtils.monitorJson(config, configProperties.getConfigType());
+    }
+
+    private void auth(HttpServletRequest request) {
+        Config config = configService.getConfig();
+        boolean enable = config.isAuthEnable();
+        if (!enable) {
+            return;
+        }
+        String authorization = request.getHeader(Authorization);
+        if (authorization == null) {
+            LogBean.get().addProps("Authorization.missing", true);
+            throw new AppException(403, "missing api key");
+        }
+        String apiKey = authorization.substring("Bearer ".length());
+        if (!config.getApiKeys().contains(apiKey)) {
+            LogBean.get().addProps("Authorization.fail", true);
+            throw new AppException(403, "illegal api key");
+        }
+    }
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        ConfigType configType = configProperties.getConfigType();
+        if (configType == ConfigType.etcd) {
+            configService = new EtcdConfigService();
+        } else if (configType == ConfigType.nacos) {
+            configService = new NacosConfigService();
+        } else if (configType == ConfigType.local) {
+            configService = new LocalConfigService();
+        } else if (configType == ConfigType.custom) {
+            String className = configProperties.getConfig().get("config.class.name");
+            if (className == null) {
+                throw new IllegalArgumentException("custom type should provide `config.class.name`");
+            }
+            configService = (ConfigService) Class.forName(className).getConstructor().newInstance();
+        } else {
+            throw new IllegalArgumentException("unknown config-type");
+        }
+        configService.init(configProperties.getConfig());
+    }
+}
