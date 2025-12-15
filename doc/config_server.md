@@ -82,5 +82,28 @@ lbd-driver-config-server:
 * `api.keys` 表示鉴权的api-key，支持多个
 * `proxy` 表示配置的sql-proxy节点列表
 
+### 接口文档
 
+```
+## 获取配置，lb-driver调用的就是这个接口
+curl -H "Authorization: Bearer xxxxx" "http://127.0.0.1:8080/fetch_sql_proxy_list?schema=xxxx"
+```
 
+```
+## 强制reload，local则重新读取本地配置文件，nacos/etcd则重新去远程拉取一次配置
+curl "http://127.0.0.1:8080/reload"
+```
+
+```
+## 监控数据
+curl "http://127.0.0.1:8080/monitor"
+```
+
+```
+## 健康检查接口
+curl "http://127.0.0.1:8080/health/status"
+## 上线接口，调用后，/health/status返回200
+curl "http://127.0.0.1:8080/health/online"
+## 下线接口，调用后，/health/status返回500
+curl "http://127.0.0.1:8080/health/offline"
+```
