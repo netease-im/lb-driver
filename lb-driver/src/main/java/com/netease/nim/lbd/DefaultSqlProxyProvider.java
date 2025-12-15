@@ -32,7 +32,13 @@ public class DefaultSqlProxyProvider implements SqlProxyProvider {
 
     public DefaultSqlProxyProvider(LBDriverUrl lbDriverUrl) {
         this.lbDriverUrl = lbDriverUrl;
-        FetchResponse response = fetchSqlProxyList();
+        FetchResponse response = null;
+        for (int i=0; i<3; i++) {
+            response = fetchSqlProxyList();
+            if (response != null) {
+                break;
+            }
+        }
         if (response == null) {
             throw new IllegalArgumentException("fetch sql proxy list error");
         }
