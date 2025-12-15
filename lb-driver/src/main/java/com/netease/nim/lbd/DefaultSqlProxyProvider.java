@@ -172,6 +172,9 @@ public class DefaultSqlProxyProvider implements SqlProxyProvider {
             List<SqlProxy> newList = new ArrayList<>();
             for (String string : list) {
                 String[] split = string.split(":");
+                if (split.length != 2) {
+                    throw new IllegalArgumentException("parse sql-proxy error = " + string);
+                }
                 SqlProxy sqlProxy = new SqlProxy(split[0], Integer.parseInt(split[1]));
                 newList.add(sqlProxy);
             }

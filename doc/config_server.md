@@ -23,8 +23,10 @@ lbd-driver-config-server:
     #    "etcd.password": "xx"
     #    "etcd.namespace": "xx"
     #    "etcd.authority": "xx"
-    "etcd.config.key": "/xx/xxx"
+    "etcd.config.key.prefix": "/obproxy/yunxin"
 ```
+* 其中 `/obproxy/yunxin/{schema}` 表示某个schema的配置
+
 
 ### 使用nacos作为数据源
 
@@ -33,9 +35,10 @@ lbd-driver-config-server:
   config-type: nacos
   config:
     "nacos.serverAddr": "127.0.0.1:8848"
-    "nacos.dataId": "xxx"
-    "nacos.group": "xxx"
+    "nacos.group": "yunxin"
 ```
+* 其中 `dataId={schema}` 表示某个schema的配置
+
 
 ### 使用本地配置文件作为数据源
 
@@ -44,8 +47,11 @@ lbd-driver-config-server:
   config-type: local
   config:
     "local.config.file": "config.json"
-
+    #"local.config.file.path": "/xxx/xx/config.json"
 ```
+* `config.json` 是一个json数组，每个元素表示一个schema
+* 可以配置文件名（classpath下），也可以配置文件绝对路径（优先级更高）
+
 
 ### 配置示例
 
@@ -55,38 +61,26 @@ lbd-driver-config-server:
 
 ```json
 {
-    "auth.enable": true,
-    "api.keys":
-    [
-        "aaaa",
-        "bbbb",
-        "cccc"
-    ],
-    "proxy_config":
-    [
-        {
-            "schema": "im_user",
-            "proxy":
-            [
-                "10.0.0.1:3306",
-                "10.0.0.2:3306"
-            ]
-        },
-        {
-            "schema": "im_msg",
-            "proxy":
-            [
-                "10.0.0.3:3306",
-                "10.0.0.4:3306"
-            ]
-        }
-    ]
+  "schema": "im_user",
+  "auth.enable": true,
+  "api.keys":
+  [
+    "aaaa",
+    "bbbb",
+    "cccc"
+  ],
+  "proxy":
+  [
+    "10.0.0.1:3306",
+    "10.0.0.2:3306"
+  ]
 }
 ```
 
+* `schema` 表示sql-proxy归属的schema
 * `auth.enable` 表示lbd-driver请求config-server时是否鉴权，默认false
 * `api.keys` 表示鉴权的api-key，支持多个
-* `proxy_config` 表示配置的sql-proxy节点列表
-* `schema` 表示sql-proxy归属的schema
+* `proxy` 表示配置的sql-proxy节点列表
+
 
 

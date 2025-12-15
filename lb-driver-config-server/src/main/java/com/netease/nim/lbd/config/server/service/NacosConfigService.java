@@ -1,18 +1,17 @@
 package com.netease.nim.lbd.config.server.service;
 
+import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.nacos.api.NacosFactory;
 import com.alibaba.nacos.api.config.listener.Listener;
-import com.netease.nim.lbd.config.server.model.Config;
+import com.netease.nim.lbd.config.server.model.SchemaConfig;
 import com.netease.nim.lbd.config.server.utils.ConfigUtils;
 import com.netease.nim.lbd.config.server.utils.NamedThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Created by caojiajun on 2025/12/10
@@ -23,9 +22,10 @@ public class NacosConfigService implements ConfigService {
 
     private static final ExecutorService reloadExecutor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("nacos-config-service"));
 
-    private Config config;
+    private final Map<String, SchemaConfig> schemaConfigMap = new ConcurrentHashMap<>();
 
-    private String dataId;
+    private final ReentrantLock lock = new ReentrantLock();
+
     private String group;
     private long timeoutMs;
     private com.alibaba.nacos.api.config.ConfigService configService;
@@ -45,11 +45,7 @@ public class NacosConfigService implements ConfigService {
                 }
             }
             this.configService = NacosFactory.createConfigService(nacosProps);
-            this.dataId = nacosProps.getProperty("dataId");
             this.group = nacosProps.getProperty("group");
-            if (dataId == null) {
-                throw new IllegalArgumentException("missing 'nacos.dataId'");
-            }
             if (group == null) {
                 throw new IllegalArgumentException("missing 'nacos.group'");
             }
@@ -63,30 +59,9 @@ public class NacosConfigService implements ConfigService {
                     throw new IllegalArgumentException("illegal 'nacos.timeoutMs'");
                 }
             }
-            boolean success = reload();
-            if (!success) {
-                throw new IllegalStateException("reload from nacos error");
-            }
-            // Listen config changes
-            configService.addListener(dataId, group, new Listener() {
-                @Override
-                public Executor getExecutor() {
-                    return reloadExecutor;
-                }
-                @Override
-                public void receiveConfigInfo(String content) {
-                    try {
-                        logger.info("nacos conf update!");
-                        NacosConfigService.this.config = ConfigUtils.parse(content);
-                        ConfigService.log(NacosConfigService.this.config);
-                    } catch (Exception e) {
-                        logger.error("receiveConfigInfo error, content = {}", content);
-                    }
-                }
-            });
             logger.info("NacosConfigService init success, nacosProps = {}", nacosProps);
         } catch (Exception e) {
-            logger.info("NacosConfigService init error, nacosProps = {}", nacosProps, e);
+            logger.error("NacosConfigService init error, nacosProps = {}", nacosProps, e);
             throw new IllegalArgumentException(e);
         }
     }
@@ -94,18 +69,83 @@ public class NacosConfigService implements ConfigService {
     @Override
     public boolean reload() {
         try {
-            String content = configService.getConfig(dataId, group, timeoutMs);
-            this.config = ConfigUtils.parse(content);
-            ConfigService.log(this.config);
+            for (Map.Entry<String, SchemaConfig> entry : schemaConfigMap.entrySet()) {
+                String schema = entry.getKey();
+                try {
+                    reload0(schema);
+                } catch (Exception e) {
+                    logger.error("reload error, schema = {}", schema, e);
+                }
+            }
             return true;
         } catch (Exception e) {
-            logger.error("reload from nacos error, dataId = {}, group = {}, timeouMs = {}", dataId, group, timeoutMs, e);
+            logger.error("reload from nacos error", e);
             return false;
         }
     }
 
     @Override
-    public Config getConfig() {
-        return config;
+    public SchemaConfig getSchemaConfig(String schema) {
+        SchemaConfig schemaConfig = schemaConfigMap.get(schema);
+        if (schemaConfig != null) {
+            return schemaConfig;
+        }
+        initSchema(schema);
+        return schemaConfigMap.get(schema);
+    }
+
+    private void initSchema(String schema) {
+        lock.lock();
+        try {
+            SchemaConfig schemaConfig = schemaConfigMap.get(schema);
+            if (schemaConfig != null) {
+                return;
+            }
+            //
+            configService.addListener(schema, group, new Listener() {
+                @Override
+                public Executor getExecutor() {
+                    return reloadExecutor;
+                }
+
+                @Override
+                public void receiveConfigInfo(String configInfo) {
+                    try {
+                        reload0(schema);
+                    } catch (Exception e) {
+                        logger.error("reload error, schema = {}", schema, e);
+                    }
+                }
+            });
+            //
+            reload0(schema);
+            //
+            schemaConfig = schemaConfigMap.get(schema);
+            logger.info("schema init success, schema = {}, schemaConfig = {}", schema, JSONObject.toJSONString(schemaConfig));
+        } catch (Exception e) {
+            logger.error("init schema config error, schema = {}", schema, e);
+            throw new IllegalArgumentException("init schema config error, schema = " + schema);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private void reload0(String schema) {
+        try {
+            String config = configService.getConfig(schema, group, timeoutMs);
+            SchemaConfig schemaConfig = ConfigUtils.parse(config);
+            if (!Objects.equals(schemaConfig.getSchema(), schema)) {
+                throw new IllegalArgumentException("illegal schema config, schema = " + schema);
+            }
+            schemaConfigMap.put(schema, schemaConfig);
+        } catch (Exception e) {
+            logger.error("init schema config error, schema = {}", schema, e);
+            throw new IllegalArgumentException("init schema config error, schema = " + schema);
+        }
+    }
+
+    @Override
+    public Map<String, SchemaConfig> getConfigMap() {
+        return new HashMap<>(schemaConfigMap);
     }
 }

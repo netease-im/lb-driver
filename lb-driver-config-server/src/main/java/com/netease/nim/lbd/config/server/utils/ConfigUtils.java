@@ -3,7 +3,7 @@ package com.netease.nim.lbd.config.server.utils;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.netease.nim.lbd.config.server.conf.ConfigType;
-import com.netease.nim.lbd.config.server.model.Config;
+import com.netease.nim.lbd.config.server.model.SchemaConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,8 +18,14 @@ public class ConfigUtils {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigUtils.class);
 
-    public static Config parse(String content) {
+    public static SchemaConfig parse(String content) {
         JSONObject json = JSONObject.parseObject(content);
+
+        String schema = json.getString("schema");
+        if (schema == null) {
+            throw new IllegalArgumentException("missing 'schema'");
+        }
+
         boolean authEnable = json.getBooleanValue("auth.enable");
         Set<String> apiKeys = new HashSet<>();
         JSONArray jsonArray = json.getJSONArray("api.keys");
@@ -33,40 +39,26 @@ public class ConfigUtils {
             throw new IllegalArgumentException("`auth.enable` is true but `api.keys` is empty");
         }
 
-        Map<String, List<String>> proxyConfig = new HashMap<>();
-
-        JSONArray proxyConfigJson = json.getJSONArray("proxy_config");
-        for (Object o : proxyConfigJson) {
-            JSONObject schemaJson = (JSONObject) o;
-            String schema = schemaJson.getString("schema");
-            if (schema == null || schema.isEmpty()) {
-                throw new IllegalArgumentException("`schema` is empty");
-            }
-            JSONArray proxyJson = schemaJson.getJSONArray("proxy");
-            List<String> proxyList = new ArrayList<>();
-            for (Object object : proxyJson) {
-                String proxy = object.toString().trim();
-                checkProxy(proxy);
-                proxyList.add(proxy);
-            }
-            if (proxyList.isEmpty()) {
-                throw new IllegalArgumentException("proxy list is empty, schema = " + schema);
-            }
-            proxyConfig.put(schema, proxyList);
+        JSONArray proxyJson = json.getJSONArray("proxy");
+        List<String> proxyList = new ArrayList<>();
+        for (Object object : proxyJson) {
+            String proxy = object.toString().trim();
+            checkProxy(schema, proxy);
+            proxyList.add(proxy);
+        }
+        if (proxyList.isEmpty()) {
+            throw new IllegalArgumentException("proxy list is empty, schema = " + schema);
         }
 
-        if (proxyConfig.isEmpty()) {
-            throw new IllegalArgumentException("proxy_config is empty");
-        }
-
-        Config config = new Config();
-        config.setAuthEnable(authEnable);
-        config.setApiKeys(apiKeys);
-        config.setProxyConfig(proxyConfig);
-        return config;
+        SchemaConfig schemaConfig = new SchemaConfig();
+        schemaConfig.setSchema(schema);
+        schemaConfig.setAuthEnable(authEnable);
+        schemaConfig.setApiKeys(apiKeys);
+        schemaConfig.setProxyList(proxyList);
+        return schemaConfig;
     }
 
-    private static void checkProxy(String proxy) {
+    private static void checkProxy(String schema, String proxy) {
         String[] split = proxy.split(":");
         if (split.length != 2) {
             throw new IllegalArgumentException("proxy parse error, proxy = " + proxy);
@@ -87,7 +79,7 @@ public class ConfigUtils {
         }
         boolean success = checkHostPort(host, port);
         if (!success) {
-            logger.warn("sql-proxy = {} not reachable, please check config", host + ":" + port);
+            logger.warn("schema = {}, sql-proxy = {} not reachable, please check config", schema, host + ":" + port);
         }
     }
 
@@ -106,28 +98,30 @@ public class ConfigUtils {
         }
     }
 
-    public static JSONObject monitorJson(Config config, ConfigType configType) {
+    public static JSONObject monitorJson(Map<String, SchemaConfig> configMap, ConfigType configType) {
         JSONObject monitorJson = new JSONObject();
         JSONArray infoJsonArray = new JSONArray();
         JSONObject info = new JSONObject();
         info.put("configType", configType);
-        info.put("authEnable", String.valueOf(config.isAuthEnable()));
-        info.put("apiKeySize", config.getApiKeys().size());
         infoJsonArray.add(info);
         monitorJson.put("info", infoJsonArray);
 
         JSONArray proxyJsonArray = new JSONArray();
-        for (Map.Entry<String, List<String>> entry : config.getProxyConfig().entrySet()) {
+        for (Map.Entry<String, SchemaConfig> entry : configMap.entrySet()) {
+            SchemaConfig schemaConfig = entry.getValue();
             JSONObject json = new JSONObject();
-            json.put("schema", entry.getKey());
-            json.put("size", entry.getValue().size());
+            json.put("schema", schemaConfig.getSchema());
+            json.put("authEnable", schemaConfig.isAuthEnable() ? 1 : 0);
+            json.put("apiKeySize", schemaConfig.getApiKeys().size());
+            json.put("proxySize", schemaConfig.getProxyList().size());
             proxyJsonArray.add(json);
         }
-        monitorJson.put("proxy", proxyJsonArray);
+        monitorJson.put("schemaInfo", proxyJsonArray);
 
         JSONArray proxyDetailJsonArray = new JSONArray();
-        for (Map.Entry<String, List<String>> entry : config.getProxyConfig().entrySet()) {
-            for (String proxy : entry.getValue()) {
+        for (Map.Entry<String, SchemaConfig> entry : configMap.entrySet()) {
+            SchemaConfig schemaConfig = entry.getValue();
+            for (String proxy : schemaConfig.getProxyList()) {
                 JSONObject json = new JSONObject();
                 json.put("schema", entry.getKey());
                 json.put("proxy", proxy);
@@ -137,7 +131,7 @@ public class ConfigUtils {
                 proxyDetailJsonArray.add(json);
             }
         }
-        monitorJson.put("proxy_detail", proxyDetailJsonArray);
+        monitorJson.put("proxyDetail", proxyDetailJsonArray);
         return monitorJson;
     }
 

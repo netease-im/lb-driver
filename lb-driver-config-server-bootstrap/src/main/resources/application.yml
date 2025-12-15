@@ -20,6 +20,24 @@ spring:
 #    "etcd.config.key": "/xx/xxx"
 
 
+###=====nacos=====
+
+#  lbd-driver-config-server:
+#    config-type: nacos
+#    config:
+#      "nacos.serverAddr": "127.0.0.1:8848"
+#      "nacos.group": "xxx"
+
+
+
+###=====local=====
+
+#lbd-driver-config-server:
+#  config-type: local
+#  config:
+#    "local.config.file": "config.json"
+
+
 
 
 ###=====nacos=====
@@ -38,5 +56,6 @@ spring:
 lbd-driver-config-server:
   config-type: local
   config:
-#    "local.config.file": "config.json"
-    "local.config.file.path": "/xx/xx/config.json"
+    "local.config.file": "config.json"
+#    "local.config.file.path": "/xx/xx/config.json"
+

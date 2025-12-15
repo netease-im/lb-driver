@@ -5,7 +5,7 @@ import com.netease.nim.lbd.config.server.conf.ConfigProperties;
 import com.netease.nim.lbd.config.server.conf.ConfigType;
 import com.netease.nim.lbd.config.server.conf.LogBean;
 import com.netease.nim.lbd.config.server.exception.AppException;
-import com.netease.nim.lbd.config.server.model.Config;
+import com.netease.nim.lbd.config.server.model.SchemaConfig;
 import com.netease.nim.lbd.config.server.service.ConfigService;
 import com.netease.nim.lbd.config.server.service.EtcdConfigService;
 import com.netease.nim.lbd.config.server.service.LocalConfigService;
@@ -55,8 +55,12 @@ public class ConfigApiController implements InitializingBean {
                                         @RequestParam(value = "md5", required = false) String md5) {
         LogBean.get().addProps("md5", md5);
         LogBean.get().addProps("schema", schema);
+        SchemaConfig schemaConfig = configService.getSchemaConfig(schema);
+        if (schemaConfig == null) {
+            return not_found;
+        }
         //
-        auth(request);
+        auth(request, schemaConfig);
         //
         if (md5 != null && md5Cache != null && Objects.equals(md5, md5Cache)
                 && System.currentTimeMillis() - md5CacheUpdateTime < 1000) {
@@ -65,12 +69,7 @@ public class ConfigApiController implements InitializingBean {
             return not_modify;
         }
         //
-        Map<String, List<String>> proxyConfig = configService.getConfig().getProxyConfig();
-        List<String> sqlProxyLists = proxyConfig.get(schema);
-        if (sqlProxyLists == null) {
-            LogBean.get().addProps("result", not_found);
-            return not_found;
-        }
+        List<String> sqlProxyLists = schemaConfig.getProxyList();
         Collections.sort(sqlProxyLists);
         String newMd5 = MD5Util.md5(JSONObject.toJSONString(sqlProxyLists));
         this.md5Cache = newMd5;
@@ -88,10 +87,7 @@ public class ConfigApiController implements InitializingBean {
     }
 
     @RequestMapping("/reload")
-    public JSONObject reload(HttpServletRequest request) {
-        //
-        auth(request);
-        //
+    public JSONObject reload() {
         boolean success = configService.reload();
         if (success) {
             return ok;
@@ -102,13 +98,12 @@ public class ConfigApiController implements InitializingBean {
 
     @RequestMapping("/monitor")
     public JSONObject monitor() {
-        Config config = configService.getConfig();
-        return ConfigUtils.monitorJson(config, configProperties.getConfigType());
+        Map<String, SchemaConfig> configMap = configService.getConfigMap();
+        return ConfigUtils.monitorJson(configMap, configProperties.getConfigType());
     }
 
-    private void auth(HttpServletRequest request) {
-        Config config = configService.getConfig();
-        boolean enable = config.isAuthEnable();
+    private void auth(HttpServletRequest request, SchemaConfig schemaConfig) {
+        boolean enable = schemaConfig.isAuthEnable();
         if (!enable) {
             return;
         }
@@ -118,7 +113,7 @@ public class ConfigApiController implements InitializingBean {
             throw new AppException(403, "missing api key");
         }
         String apiKey = authorization.substring("Bearer ".length());
-        if (!config.getApiKeys().contains(apiKey)) {
+        if (!schemaConfig.getApiKeys().contains(apiKey)) {
             LogBean.get().addProps("Authorization.fail", true);
             throw new AppException(403, "illegal api key");
         }

@@ -1,28 +1,32 @@
-{
-  "auth.enable": true,
-  "api.keys":
-  [
-    "aaaa",
-    "bbbb",
-    "cccc"
-  ],
-  "proxy_config":
-  [
-    {
-      "schema": "im_user",
-      "proxy":
-      [
-        "10.59.129.154:28831",
-        "10.59.129.155:28831"
-      ]
-    },
-    {
-      "schema": "im_msg",
-      "proxy":
-      [
-        "10.0.0.3:3306",
-        "10.0.0.4:3306"
-      ]
-    }
-  ]
-}
+[
+  {
+    "schema": "im_user",
+    "auth.enable": true,
+    "api.keys":
+    [
+      "aaaa",
+      "bbbb",
+      "cccc"
+    ],
+    "proxy":
+    [
+      "10.59.129.154:28831",
+      "10.59.129.155:28831"
+    ]
+  },
+  {
+    "schema": "im_msg",
+    "auth.enable": true,
+    "api.keys":
+    [
+      "asasaas",
+      "bbxxabb",
+      "ccqwqwqcc"
+    ],
+    "proxy":
+    [
+      "10.59.129.154:1885",
+      "10.59.129.155:1885"
+    ]
+  }
+]

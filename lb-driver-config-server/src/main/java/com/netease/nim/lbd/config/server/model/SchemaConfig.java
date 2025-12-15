@@ -1,17 +1,24 @@
 package com.netease.nim.lbd.config.server.model;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
- * Created by caojiajun on 2025/12/10
+ * Created by caojiajun on 2025/12/15
  */
-public class Config {
-
+public class SchemaConfig {
+    private String schema;
     private boolean authEnable;
     private Set<String> apiKeys;
-    private Map<String, List<String>> proxyConfig;
+    private List<String> proxyList;
+
+    public String getSchema() {
+        return schema;
+    }
+
+    public void setSchema(String schema) {
+        this.schema = schema;
+    }
 
     public boolean isAuthEnable() {
         return authEnable;
@@ -29,11 +36,11 @@ public class Config {
         this.apiKeys = apiKeys;
     }
 
-    public Map<String, List<String>> getProxyConfig() {
-        return proxyConfig;
+    public List<String> getProxyList() {
+        return proxyList;
     }
 
-    public void setProxyConfig(Map<String, List<String>> proxyConfig) {
-        this.proxyConfig = proxyConfig;
+    public void setProxyList(List<String> proxyList) {
+        this.proxyList = proxyList;
     }
 }

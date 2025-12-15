@@ -1,12 +1,16 @@
 package com.netease.nim.lbd.config.server.service;
 
-import com.netease.nim.lbd.config.server.model.Config;
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
+import com.netease.nim.lbd.config.server.model.SchemaConfig;
 import com.netease.nim.lbd.config.server.utils.ConfigUtils;
 import com.netease.nim.lbd.config.server.utils.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Created by caojiajun on 2025/12/10
@@ -16,7 +20,7 @@ public class LocalConfigService implements ConfigService {
     private static final Logger logger = LoggerFactory.getLogger(LocalConfigService.class);
 
     private Map<String, String> initConfig;
-    private Config config;
+    private Map<String, SchemaConfig> schemaConfigMap = new ConcurrentHashMap<>();
 
     @Override
     public void init(Map<String, String> config) {
@@ -31,13 +35,14 @@ public class LocalConfigService implements ConfigService {
     public boolean reload() {
         try {
             String configFilePath = initConfig.get("local.config.file.path");
+            JSONArray jsonArray;
             if (configFilePath != null) {
                 FileUtils.FileInfo fileInfo = FileUtils.readByFilePath(configFilePath);
                 if (fileInfo == null) {
                     throw new IllegalArgumentException(configFilePath + " read failed");
                 }
                 String fileContent = fileInfo.getFileContent();
-                this.config = ConfigUtils.parse(fileContent);
+                jsonArray = JSONArray.parseArray(fileContent);
             } else {
                 String configFile = initConfig.get("local.config.file");
                 if (configFile == null) {
@@ -48,9 +53,19 @@ public class LocalConfigService implements ConfigService {
                     throw new IllegalArgumentException(configFile + " read failed");
                 }
                 String fileContent = fileInfo.getFileContent();
-                this.config = ConfigUtils.parse(fileContent);
+                jsonArray = JSONArray.parseArray(fileContent);
             }
-            ConfigService.log(this.config);
+            Map<String, SchemaConfig> schemaConfigMap = new ConcurrentHashMap<>();
+            for (Object o : jsonArray) {
+                JSONObject json = (JSONObject) o;
+                SchemaConfig schemaConfig = ConfigUtils.parse(json.toString());
+                if (schemaConfigMap.containsKey(schemaConfig.getSchema())) {
+                    throw new IllegalArgumentException("duplicate schema = " + schemaConfig.getSchema());
+                }
+                schemaConfigMap.put(schemaConfig.getSchema(), schemaConfig);
+                logger.info("schema init success, schema = {}, schemaConfig = {}", schemaConfig.getSchema(), JSONObject.toJSONString(schemaConfig));
+            }
+            this.schemaConfigMap = schemaConfigMap;
             return true;
         } catch (Exception e) {
             logger.error("reload error", e);
@@ -59,7 +74,12 @@ public class LocalConfigService implements ConfigService {
     }
 
     @Override
-    public Config getConfig() {
-        return config;
+    public SchemaConfig getSchemaConfig(String schema) {
+        return schemaConfigMap.get(schema);
+    }
+
+    @Override
+    public Map<String, SchemaConfig> getConfigMap() {
+        return new HashMap<>(schemaConfigMap);
     }
 }
