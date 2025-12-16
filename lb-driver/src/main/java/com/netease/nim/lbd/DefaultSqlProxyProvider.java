@@ -110,7 +110,8 @@ public class DefaultSqlProxyProvider implements SqlProxyProvider {
             this.sqlProxyList = newList;
             this.md5 = fetchResponse.md5;
         } catch (Exception e) {
-            logger.error("checkSqlProxyListChange error", e);
+            logger.error("checkSqlProxyListChange error, configServer = {}, schema = {}",
+                    lbDriverUrl.getConfigServerHost() + ":" + lbDriverUrl.getConfigServerPort(), lbDriverUrl.getConfigServerSchema(), e);
         }
     }
 
@@ -180,7 +181,8 @@ public class DefaultSqlProxyProvider implements SqlProxyProvider {
             }
             return new FetchResponse(200, md5, newList);
         } catch (Exception e) {
-            logger.error("fetch sql proxy list error", e);
+            logger.error("fetch sql proxy list error, configServer = {}, schema = {}",
+                    lbDriverUrl.getConfigServerHost() + ":" + lbDriverUrl.getConfigServerPort(), lbDriverUrl.getConfigServerSchema(), e);
             return null;
         } finally {
             if (conn != null) {

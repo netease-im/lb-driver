@@ -21,27 +21,28 @@ public class LBContainer {
 
     private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("lbd-log-stats"));
 
+
     private final LBDriverUrl lbDriverUrl;
     private final ConnectionManager connectionManager;
 
-    public LBContainer(LBDriverUrl lbDriverUrl) {
+    public LBContainer(LBDriverUrl lbDriverUrl, SqlProxyProvider sqlProxyProvider) {
         this.lbDriverUrl = lbDriverUrl;
-        if (lbDriverUrl.getType() == LBDriverType.local) {
-            this.connectionManager = new ConnectionManager(lbDriverUrl, new LocalSqlProxyProvider(lbDriverUrl));
-        } else if (lbDriverUrl.getType() == LBDriverType.remote) {
-            this.connectionManager = new ConnectionManager(lbDriverUrl, new DefaultSqlProxyProvider(lbDriverUrl));
-        } else {
-            throw new IllegalArgumentException("not support lb driver type");
-        }
+        this.connectionManager = new ConnectionManager(lbDriverUrl, sqlProxyProvider);
         if (lbDriverUrl.isLogStats()) {
             scheduler.scheduleAtFixedRate(this::logStats, 1, 1, TimeUnit.MINUTES);
         }
     }
 
+    /**
+     * connect
+     * @return LBConnection
+     * @throws SQLException exception
+     */
     public Connection connect() throws SQLException {
         return new LBConnection(connectionManager, lbDriverUrl);
     }
 
+    //打印日志
     private void logStats() {
         try {
             LbdStats stats = connectionManager.stats();

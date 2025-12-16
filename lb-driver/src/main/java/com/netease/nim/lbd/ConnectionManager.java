@@ -63,6 +63,17 @@ public class ConnectionManager {
         } finally {
             lock.unlock();
         }
+        checkReachable();
+        int reachableCount = 0;
+        for (Map.Entry<SqlProxy, SqlProxyConnectionPool> entry : poolMap.entrySet()) {
+            boolean reachable = entry.getValue().isReachable();
+            if (reachable) {
+                reachableCount ++;
+            }
+        }
+        if (reachableCount <= 0) {
+            throw new IllegalArgumentException("There is no reachable sql proxy for " + lbDriverUrl.getSchemaName());
+        }
         sqlProxyProvider.addSqlProxyCallback(new SqlProxyCallback() {
             @Override
             public void add(List<SqlProxy> list) {
