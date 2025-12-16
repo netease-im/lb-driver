@@ -3,6 +3,7 @@ package com.netease.nim.lbd.config.server.service;
 import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.nacos.api.NacosFactory;
 import com.alibaba.nacos.api.config.listener.Listener;
+import com.googlecode.concurrentlinkedhashmap.ConcurrentLinkedHashMap;
 import com.netease.nim.lbd.config.server.model.SchemaConfig;
 import com.netease.nim.lbd.config.server.utils.ConfigUtils;
 import com.netease.nim.lbd.config.server.utils.NamedThreadFactory;
@@ -23,6 +24,10 @@ public class NacosConfigService implements ConfigService {
     private static final ExecutorService reloadExecutor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("nacos-config-service"));
 
     private final Map<String, SchemaConfig> schemaConfigMap = new ConcurrentHashMap<>();
+    private final ConcurrentLinkedHashMap<String, Long> timeMap = new ConcurrentLinkedHashMap.Builder<String, Long>()
+            .initialCapacity(10000)
+            .maximumWeightedCapacity(10000)
+            .build();
 
     private final ReentrantLock lock = new ReentrantLock();
 
@@ -59,11 +64,17 @@ public class NacosConfigService implements ConfigService {
                     throw new IllegalArgumentException("illegal 'nacos.timeoutMs'");
                 }
             }
+            schedule();
             logger.info("NacosConfigService init success, nacosProps = {}", nacosProps);
         } catch (Exception e) {
             logger.error("NacosConfigService init error, nacosProps = {}", nacosProps, e);
             throw new IllegalArgumentException(e);
         }
+    }
+
+    private void schedule() {
+        Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("nacos-config-schedule"))
+                .scheduleAtFixedRate(this::reload, 60, 60, TimeUnit.SECONDS);
     }
 
     @Override
@@ -101,6 +112,17 @@ public class NacosConfigService implements ConfigService {
             if (schemaConfig != null) {
                 return;
             }
+            Long lastInitTime = timeMap.get(schema);
+            if (lastInitTime != null && System.currentTimeMillis() - lastInitTime < 1000) {
+                return;
+            }
+            //
+            reload0(schema);
+            schemaConfig = schemaConfigMap.get(schema);
+            if (schemaConfig == null) {
+                logger.error("schema init fail, not found, schema = {}", schema);
+                return;
+            }
             //
             configService.addListener(schema, group, new Listener() {
                 @Override
@@ -118,13 +140,10 @@ public class NacosConfigService implements ConfigService {
                 }
             });
             //
-            reload0(schema);
-            //
-            schemaConfig = schemaConfigMap.get(schema);
             logger.info("schema init success, schema = {}, schemaConfig = {}", schema, JSONObject.toJSONString(schemaConfig));
         } catch (Exception e) {
             logger.error("init schema config error, schema = {}", schema, e);
-            throw new IllegalArgumentException("init schema config error, schema = " + schema);
+            throw new IllegalArgumentException("init schema config error, schema = " + schema, e);
         } finally {
             lock.unlock();
         }
@@ -133,14 +152,21 @@ public class NacosConfigService implements ConfigService {
     private void reload0(String schema) {
         try {
             String config = configService.getConfig(schema, group, timeoutMs);
+            if (config == null) {
+                return;
+            }
             SchemaConfig schemaConfig = ConfigUtils.parse(config);
             if (!Objects.equals(schemaConfig.getSchema(), schema)) {
                 throw new IllegalArgumentException("illegal schema config, schema = " + schema);
             }
+            SchemaConfig oldSchemaConfig = schemaConfigMap.get(schema);
+            if (oldSchemaConfig != null && !schemaConfig.equals(oldSchemaConfig)) {
+                logger.info("schema config updated, schema = {}, config = {}", schema, JSONObject.toJSONString(schemaConfig));
+            }
             schemaConfigMap.put(schema, schemaConfig);
         } catch (Exception e) {
             logger.error("init schema config error, schema = {}", schema, e);
-            throw new IllegalArgumentException("init schema config error, schema = " + schema);
+            throw new IllegalArgumentException("init schema config error, schema = " + schema, e);
         }
     }
 

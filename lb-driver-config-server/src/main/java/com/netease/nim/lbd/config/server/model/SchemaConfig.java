@@ -1,6 +1,7 @@
 package com.netease.nim.lbd.config.server.model;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -42,5 +43,17 @@ public class SchemaConfig {
 
     public void setProxyList(List<String> proxyList) {
         this.proxyList = proxyList;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        SchemaConfig that = (SchemaConfig) o;
+        return authEnable == that.authEnable && Objects.equals(schema, that.schema) && Objects.equals(apiKeys, that.apiKeys) && Objects.equals(proxyList, that.proxyList);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(schema, authEnable, apiKeys, proxyList);
     }
 }

@@ -103,6 +103,7 @@ public class ConfigUtils {
         JSONArray infoJsonArray = new JSONArray();
         JSONObject info = new JSONObject();
         info.put("configType", configType);
+        info.put("schemaSize", configMap.size());
         infoJsonArray.add(info);
         monitorJson.put("info", infoJsonArray);
 

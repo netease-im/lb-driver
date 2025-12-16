@@ -1,6 +1,7 @@
 package com.netease.nim.lbd.config.server.service;
 
 import com.alibaba.fastjson2.JSONObject;
+import com.googlecode.concurrentlinkedhashmap.ConcurrentLinkedHashMap;
 import com.netease.nim.lbd.config.server.model.SchemaConfig;
 import com.netease.nim.lbd.config.server.utils.ConfigUtils;
 import com.netease.nim.lbd.config.server.utils.NamedThreadFactory;
@@ -28,6 +29,10 @@ public class EtcdConfigService implements ConfigService {
     private static final ExecutorService reloadExecutor = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("etcd-config-service"));
 
     private final Map<String, SchemaConfig> schemaConfigMap = new ConcurrentHashMap<>();
+    private final ConcurrentLinkedHashMap<String, Long> timeMap = new ConcurrentLinkedHashMap.Builder<String, Long>()
+            .initialCapacity(10000)
+            .maximumWeightedCapacity(10000)
+            .build();
 
     private String configKeyPrefix;
     private Client client;
@@ -87,11 +92,17 @@ public class EtcdConfigService implements ConfigService {
             }
             configKeyPrefix = keyPrefix;
             init();
+            schedule();
             logger.info("EtcdConfigService init success, etcdServer = {}, configKeyPrefix = {}", etcdServer, configKeyPrefix);
         } catch (Exception e) {
             logger.error("EtcdConfigService init error, etcdServer = {}, configKeyPrefix = {}", etcdServer, configKeyPrefix, e);
             throw new IllegalArgumentException(e);
         }
+    }
+
+    private void schedule() {
+        Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("etcd-config-schedule"))
+                .scheduleAtFixedRate(this::reload, 60, 60, TimeUnit.SECONDS);
     }
 
     private void init() throws Exception {
@@ -111,6 +122,7 @@ public class EtcdConfigService implements ConfigService {
     @Override
     public boolean reload() {
         try {
+            init();
             for (Map.Entry<String, SchemaConfig> entry : schemaConfigMap.entrySet()) {
                 String schema = entry.getKey();
                 try {
@@ -143,6 +155,17 @@ public class EtcdConfigService implements ConfigService {
             if (schemaConfig != null) {
                 return;
             }
+            Long lastInitTime = timeMap.get(schema);
+            if (lastInitTime != null && System.currentTimeMillis() - lastInitTime < 1000) {
+                return;
+            }
+            //
+            reload0(schema);
+            schemaConfig = schemaConfigMap.get(schema);
+            if (schemaConfig == null) {
+                logger.error("schema init fail, not found, schema = {}", schema);
+                return;
+            }
             //
             client.getWatchClient().watch(configKey(schema), watchResponse -> reloadExecutor.submit(() -> {
                 try {
@@ -152,13 +175,10 @@ public class EtcdConfigService implements ConfigService {
                 }
             }));
             //
-            reload0(schema);
-            //
-            schemaConfig = schemaConfigMap.get(schema);
             logger.info("schema init success, schema = {}, schemaConfig = {}", schema, JSONObject.toJSONString(schemaConfig));
         } catch (Exception e) {
             logger.error("init schema config error, schema = {}", schema, e);
-            throw new IllegalArgumentException("init schema config error, schema = " + schema);
+            throw new IllegalArgumentException("init schema config error, schema = " + schema, e);
         } finally {
             lock.unlock();
         }
@@ -173,18 +193,28 @@ public class EtcdConfigService implements ConfigService {
             ByteSequence configKey = configKey(schema);
             CompletableFuture<GetResponse> future = client.getKVClient().get(configKey);
             GetResponse response = future.get();
+            if (response == null) {
+                return;
+            }
             List<KeyValue> kvs = response.getKvs();
             if (kvs.isEmpty()) {
-                throw new IllegalArgumentException("config not found");
+                return;
             }
             KeyValue value = kvs.getFirst();
+            if (value == null || value.getValue() == null || value.getValue().toString().isEmpty()) {
+                return;
+            }
             SchemaConfig schemaConfig = ConfigUtils.parse(value.getValue().toString());
             if (!Objects.equals(schemaConfig.getSchema(), schema)) {
                 throw new IllegalArgumentException("illegal schema config, schema = " + schema);
             }
+            SchemaConfig oldSchemaConfig = schemaConfigMap.get(schema);
+            if (oldSchemaConfig != null && !schemaConfig.equals(oldSchemaConfig)) {
+                logger.info("schema config updated, schema = {}, config = {}", schema, JSONObject.toJSONString(schemaConfig));
+            }
             schemaConfigMap.put(schema, schemaConfig);
         } catch (Exception e) {
-            throw new IllegalArgumentException("init schema config error, schema = " + schema);
+            throw new IllegalArgumentException("init schema config error, schema = " + schema, e);
         }
     }
 

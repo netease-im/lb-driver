@@ -49,6 +49,11 @@
 			<version>2.0.60</version>
 		</dependency>
 		<dependency>
+			<groupId>com.googlecode.concurrentlinkedhashmap</groupId>
+			<artifactId>concurrentlinkedhashmap-lru</artifactId>
+			<version>1.4.2</version>
+		</dependency>
+		<dependency>
 			<groupId>io.etcd</groupId>
 			<artifactId>jetcd-core</artifactId>
 			<version>0.8.6</version>

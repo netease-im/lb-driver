@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 public class ConfigApiController implements InitializingBean {
@@ -46,8 +47,8 @@ public class ConfigApiController implements InitializingBean {
 
     private ConfigService configService;
 
-    private String md5Cache;
-    private long md5CacheUpdateTime;
+    private final ConcurrentHashMap<String, String> md5CacheMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Long> md5CacheUpdateTimeMap = new ConcurrentHashMap<>();
 
     @GetMapping("/fetch_sql_proxy_list")
     public JSONObject fetchSqlProxyList(HttpServletRequest request,
@@ -57,12 +58,15 @@ public class ConfigApiController implements InitializingBean {
         LogBean.get().addProps("schema", schema);
         SchemaConfig schemaConfig = configService.getSchemaConfig(schema);
         if (schemaConfig == null) {
+            LogBean.get().addProps("result", not_found);
             return not_found;
         }
         //
         auth(request, schemaConfig);
         //
-        if (md5 != null && md5Cache != null && Objects.equals(md5, md5Cache)
+        String md5Cache = md5CacheMap.get(schema);
+        Long md5CacheUpdateTime = md5CacheUpdateTimeMap.get(schema);
+        if (md5 != null && md5Cache != null && md5CacheUpdateTime != null && Objects.equals(md5, md5Cache)
                 && System.currentTimeMillis() - md5CacheUpdateTime < 1000) {
             LogBean.get().addProps("result", not_modify);
             LogBean.get().addProps("md5.cache", true);
@@ -72,8 +76,8 @@ public class ConfigApiController implements InitializingBean {
         List<String> sqlProxyLists = schemaConfig.getProxyList();
         Collections.sort(sqlProxyLists);
         String newMd5 = MD5Util.md5(JSONObject.toJSONString(sqlProxyLists));
-        this.md5Cache = newMd5;
-        this.md5CacheUpdateTime = System.currentTimeMillis();
+        md5CacheMap.put(schema, newMd5);
+        md5CacheUpdateTimeMap.put(schema, System.currentTimeMillis());
         if (Objects.equals(md5, newMd5)) {
             LogBean.get().addProps("result", not_modify);
             return not_modify;
