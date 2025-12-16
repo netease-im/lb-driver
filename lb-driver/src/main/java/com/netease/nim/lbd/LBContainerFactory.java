@@ -21,13 +21,11 @@ public class LBContainerFactory {
 
     public LBContainer get(LBDriverUrl lbDriverUrl) {
         LBContainer lbContainer = map.get(lbDriverUrl.getUrl());
-        if (lbContainer == null) {
-            synchronized (LBContainerFactory.class) {
-                SqlProxyProvider sqlProxyProvider = initSqlProxyProvider(lbDriverUrl);
-                lbContainer = map.computeIfAbsent(lbDriverUrl.getUrl(), k -> new LBContainer(lbDriverUrl, sqlProxyProvider));
-            }
+        if (lbContainer != null) {
+            return lbContainer;
         }
-        return lbContainer;
+        SqlProxyProvider sqlProxyProvider = initSqlProxyProvider(lbDriverUrl);
+        return map.computeIfAbsent(lbDriverUrl.getUrl(), k -> new LBContainer(lbDriverUrl, sqlProxyProvider));
     }
 
     private SqlProxyProvider initSqlProxyProvider(LBDriverUrl lbDriverUrl) {

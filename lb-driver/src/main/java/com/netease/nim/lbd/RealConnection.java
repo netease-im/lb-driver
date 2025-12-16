@@ -32,10 +32,10 @@ public class RealConnection {
             return false;
         }
         if (!isHealthy) {
-            throw lastException != null ? lastException : new SQLException("sync creating connection failed.");
+            throw lastException != null ? lastException : new SQLException("sync creating connection failed, sql-proxy = " + sqlProxy);
         }
         if (isClosed) {
-            throw new SQLException("connection is closed.");
+            throw new SQLException("connection is closed, sql-proxy = " + sqlProxy);
         }
         synchronized (this) {
             if (physicalConnection == null) {
@@ -82,7 +82,7 @@ public class RealConnection {
                 try {
                     physicalConnection.close();
                 } catch (Exception e) {
-                    throw new RuntimeException(e);
+                    throw new IllegalStateException("close error, sql-proxy = " + sqlProxy, e);
                 }
             }
     	}

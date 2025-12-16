@@ -313,8 +313,8 @@ public class ConnectionManager {
 
     //定时检查所有的sql-proxy是否可达
     private void checkReachable() {
-        try {
-            if (healthCheckStatus.compareAndSet(false, true)) {
+        if (healthCheckStatus.compareAndSet(false, true)) {
+            try {
                 Set<SqlProxy> set = new HashSet<>(poolMap.keySet());
                 for (SqlProxy sqlProxy : set) {
                     SqlProxyConnectionPool pool = poolMap.get(sqlProxy);
@@ -338,9 +338,11 @@ public class ConnectionManager {
                         lock.unlock();
                     }
                 }
+            } catch (Exception e) {
+                logger.error("checkReachable error", e);
+            } finally {
+                healthCheckStatus.compareAndSet(true, false);
             }
-        } catch (Exception e) {
-            logger.error("checkReachable error", e);
         }
     }
 
