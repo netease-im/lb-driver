@@ -145,8 +145,8 @@ public class RemoteSqlProxyProvider implements SqlProxyProvider {
             if (lbDriverUrl.getConfigServerApiKey() != null) {
                 conn.setRequestProperty("Authorization", "Bearer " + lbDriverUrl.getConfigServerApiKey());
             }
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
+            conn.setConnectTimeout(lbDriverUrl.getConfigServerTimeout());
+            conn.setReadTimeout(lbDriverUrl.getConfigServerTimeout());
             conn.setRequestMethod("GET");
             //
             int status = conn.getResponseCode();

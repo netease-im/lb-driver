@@ -15,10 +15,13 @@ public class LBDriverUrl {
 
     private List<SqlProxy> sqlProxyList;
 
-    private boolean logStats;
+    private boolean logStats = Constants.LOG_STATS;
+    private int checkBalanceIntervalSeconds = Constants.CHECK_BALANCE_INTERVAL_SECONDS;
+    private int checkHealthIntervalSeconds = Constants.CHECK_HEALTH_INTERVAL_SECONDS;
 
     private String configServerHost;
     private int configServerPort;
+    private int configServerTimeout = Constants.CONFIG_SERVER_TIMEOUT;
 
     private String configServerSchema;
     private String configServerApiKey;
@@ -75,6 +78,18 @@ public class LBDriverUrl {
         return logStats;
     }
 
+    public int getCheckBalanceIntervalSeconds() {
+        return checkBalanceIntervalSeconds;
+    }
+
+    public int getCheckHealthIntervalSeconds() {
+        return checkHealthIntervalSeconds;
+    }
+
+    public int getConfigServerTimeout() {
+        return configServerTimeout;
+    }
+
     public static class Builder {
 
         private final LBDriverUrl lbDriverUrl;
@@ -122,6 +137,18 @@ public class LBDriverUrl {
 
         public void setLogStats(boolean logStats) {
             lbDriverUrl.logStats = logStats;
+        }
+
+        public void checkBalanceIntervalSeconds(int checkBalanceIntervalSeconds) {
+            lbDriverUrl.checkBalanceIntervalSeconds = checkBalanceIntervalSeconds;
+        }
+
+        public void checkHealthIntervalSeconds(int checkHealthIntervalSeconds) {
+            lbDriverUrl.checkHealthIntervalSeconds = checkHealthIntervalSeconds;
+        }
+
+        public void configServerTimeout(int configServerTimeout) {
+            lbDriverUrl.configServerTimeout = configServerTimeout;
         }
 
         public LBDriverUrl build() {

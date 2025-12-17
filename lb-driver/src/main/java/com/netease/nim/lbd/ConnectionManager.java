@@ -87,8 +87,8 @@ public class ConnectionManager {
             }
         });
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2, new NamedThreadFactory("lbd-connection-manager"));
-        scheduler.scheduleAtFixedRate(this::checkBalance, 10, 10, TimeUnit.SECONDS);
-        scheduler.scheduleAtFixedRate(this::checkReachable, 5, 5, TimeUnit.SECONDS);
+        scheduler.scheduleAtFixedRate(this::checkBalance, lbDriverUrl.getCheckBalanceIntervalSeconds(), lbDriverUrl.getCheckBalanceIntervalSeconds(), TimeUnit.SECONDS);
+        scheduler.scheduleAtFixedRate(this::checkReachable, lbDriverUrl.getCheckHealthIntervalSeconds(), lbDriverUrl.getCheckHealthIntervalSeconds(), TimeUnit.SECONDS);
     }
 
 
