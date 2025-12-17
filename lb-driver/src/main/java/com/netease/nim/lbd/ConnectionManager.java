@@ -47,6 +47,7 @@ public class ConnectionManager {
         this.lbDriverUrl = lbDriverUrl;
         this.sqlProxyProvider = sqlProxyProvider;
         init();
+        logger.info("lbd connection manager init success, url = {}", lbDriverUrl.getUrl());
     }
 
     private void init() {
@@ -72,7 +73,7 @@ public class ConnectionManager {
             }
         }
         if (reachableCount <= 0) {
-            throw new IllegalArgumentException("There is no reachable sql proxy for " + lbDriverUrl.getSchemaName());
+            throw new IllegalArgumentException("There is no reachable sql proxy");
         }
         sqlProxyProvider.addSqlProxyCallback(new SqlProxyCallback() {
             @Override
@@ -112,7 +113,7 @@ public class ConnectionManager {
                 }
                 pool = balanceQueue.peekHeadExcludeRandomly(excludes);
                 if (pool == null) {
-                    throw new SQLException("There is no reachable sql proxy for " + lbDriverUrl.getSchemaName());
+                    throw new SQLException("There is no reachable sql proxy");
                 }
                 connection = pool.getConnection(true, false);
                 excludes.add(pool);
@@ -138,7 +139,7 @@ public class ConnectionManager {
         if (ex != null) {
             throw ex;
         }
-        throw new SQLException("There is no reachable sql proxy for " + lbDriverUrl.getSchemaName());
+        throw new SQLException("There is no reachable sql proxy");
     }
 
     /**
@@ -228,7 +229,7 @@ public class ConnectionManager {
                 boolean useIdleConnection = usingCount < totalCount;
                 pool = borrowQueue.peekHeadExclude(excludes);
                 if (pool == null) {
-                    throw new SQLException("There is no reachable sql proxy for " + lbDriverUrl.getSchemaName());
+                    throw new SQLException("There is no reachable sql proxy");
                 }
                 realConnection = pool.getConnection(!useIdleConnection, true);
                 excludes.add(pool);
@@ -339,7 +340,7 @@ public class ConnectionManager {
                     }
                 }
             } catch (Exception e) {
-                logger.error("checkReachable error", e);
+                logger.error("checkReachable error, url = {}", lbDriverUrl.getUrl(), e);
             } finally {
                 healthCheckStatus.compareAndSet(true, false);
             }
@@ -367,7 +368,7 @@ public class ConnectionManager {
                 rebalance();
                 removeOfflineSqlProxy();
             } catch (Exception e) {
-                logger.error("rebalance error, schema = {}", lbDriverUrl.getSchemaName(), e);
+                logger.error("rebalance error, url = {}", lbDriverUrl.getUrl(), e);
             } finally {
                 rebalanceStatus.compareAndSet(true, false);
             }

@@ -38,7 +38,7 @@ public class LBContainerFactory {
             if (type == LBDriverType.local) {
                 return new LocalSqlProxyProvider(lbDriverUrl);
             } else if (type == LBDriverType.remote) {
-                return new DefaultSqlProxyProvider(lbDriverUrl);
+                return new RemoteSqlProxyProvider(lbDriverUrl);
             } else {
                 throw new IllegalArgumentException("not support lb driver type");
             }

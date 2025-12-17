@@ -1,6 +1,8 @@
 package com.netease.nim.lbd.util;
 
 import com.netease.nim.lbd.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -19,6 +21,8 @@ import java.util.Properties;
  */
 public class LBDriverUrlParser {
 
+    private static final Logger logger = LoggerFactory.getLogger(LBDriverUrlParser.class);
+
     public static final String UNSUPPORTED_METHOD_BEHAVIOR = "unsupportedMethodBehavior";
     public static final String CONFIG_SERVER_SCHEMA = "configServerSchema";
     public static final String CONFIG_SERVER_API_KEY = "configServerApiKey";
@@ -29,6 +33,7 @@ public class LBDriverUrlParser {
             throw new SQLException("url is null.");
         }
         if (!url.startsWith(Constants.LB_DRIVER_URL_PREFIX)) {
+            logger.warn("not lbd driver url = {}, props = {}", url, info);
             return null;
         }
 
@@ -39,6 +44,7 @@ public class LBDriverUrlParser {
         } else if (url.startsWith(Constants.LB_DRIVER_REMOTE_URL_PREFIX)) {
             type = LBDriverType.remote;
         } else {
+            logger.warn("illegal lbd driver url = {}, props = {}", url, info);
             return null;
         }
         builder.setType(type);

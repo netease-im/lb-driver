@@ -20,9 +20,9 @@ import java.util.concurrent.TimeUnit;
 /**
  * Created by caojiajun on 2025/12/9
  */
-public class DefaultSqlProxyProvider implements SqlProxyProvider {
+public class RemoteSqlProxyProvider implements SqlProxyProvider {
 
-    private static final Logger logger = LoggerFactory.getLogger(DefaultSqlProxyProvider.class);
+    private static final Logger logger = LoggerFactory.getLogger(RemoteSqlProxyProvider.class);
 
     private final LBDriverUrl lbDriverUrl;
     private final List<SqlProxyCallback> callbackList = new ArrayList<>();
@@ -30,7 +30,7 @@ public class DefaultSqlProxyProvider implements SqlProxyProvider {
     private String md5;
     private List<SqlProxy> sqlProxyList;
 
-    public DefaultSqlProxyProvider(LBDriverUrl lbDriverUrl) {
+    public RemoteSqlProxyProvider(LBDriverUrl lbDriverUrl) {
         this.lbDriverUrl = lbDriverUrl;
         FetchResponse response = null;
         for (int i=0; i<3; i++) {
@@ -48,6 +48,8 @@ public class DefaultSqlProxyProvider implements SqlProxyProvider {
         }
         Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("lbd-sql-proxy-provider"))
                 .scheduleAtFixedRate(this::checkSqlProxyListChange, 5, 5, TimeUnit.SECONDS);
+        logger.info("lbd remote sql proxy provider init success, configServer = {}, schema = {}, sqlProxyList = {}",
+                lbDriverUrl.getConfigServerHost() + ":" + lbDriverUrl.getConfigServerPort(), lbDriverUrl.getConfigServerSchema(), sqlProxyList);
     }
 
     @Override

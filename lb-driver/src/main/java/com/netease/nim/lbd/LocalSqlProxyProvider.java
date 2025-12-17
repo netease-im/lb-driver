@@ -1,5 +1,8 @@
 package com.netease.nim.lbd;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -9,10 +12,13 @@ import java.util.List;
  */
 public class LocalSqlProxyProvider implements SqlProxyProvider {
 
+    private static final Logger logger = LoggerFactory.getLogger(LocalSqlProxyProvider.class);
+
     private final LBDriverUrl lbDriverUrl;
 
     public LocalSqlProxyProvider(LBDriverUrl lbDriverUrl) {
         this.lbDriverUrl = lbDriverUrl;
+        logger.info("lbd local sql proxy provider init success, sqlProxyList = {}", lbDriverUrl.getSqlProxyList());
     }
 
     @Override
