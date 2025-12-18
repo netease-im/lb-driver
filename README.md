@@ -41,7 +41,10 @@ driver=com.netease.nim.lbd.LBDriver
 jdbc:mysql:lb:local://10.189.0.1:6000,10.189.0.2:6000,10.189.0.3:6000/mydatabase?connectTimeout=5000&socketTimeout=10000&logStats=true
 ```
 
-* `logStats` 表示是否打印统计日志
+* `logStats` 表示是否打印统计日志，可选，默认false
+* `checkBalanceIntervalSeconds` 负载均衡定时任务的间隔，可选，默认10s
+* `checkHealthIntervalSeconds` 健康检查定时任务的间隔，可选，默认5s
+* `unsupportedMethodBehavior` 调用不支持方法时的行为，`throwException` 或者 `ignoreCall`，可选，默认 `throwException`
 
 
 ### config-server模式
@@ -57,7 +60,11 @@ jdbc:mysql:lb:remote://config-server.xxx.com:8080/mydatabase?connectTimeout=5000
 * `config-server.xxx.com:8080` 表示config-server的地址，需要host:port的格式，必填
 * `configServerApiKey` 表示config-server的鉴权key，可选，取决于config-server是否开启了鉴权
 * `configServerSchema` 表示config-server的schema，必填
-* `logStats` 表示是否打印统计日志
+* `configServerTimeout` 表示访问config-server的超时，单位毫秒，默认5000
+* `logStats` 表示是否打印统计日志，可选，默认false
+* `checkBalanceIntervalSeconds` 负载均衡定时任务的间隔，可选，默认10s
+* `checkHealthIntervalSeconds` 健康检查定时任务的间隔，可选，默认5s
+* `unsupportedMethodBehavior` 调用不支持方法时的行为，`throwException` 或者 `ignoreCall`，可选，默认 `throwException`
 
 config-server的部署配置，参考：[config_server](doc/config_server.md)
 
