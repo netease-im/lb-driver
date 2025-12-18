@@ -312,6 +312,8 @@ public class ConnectionManager {
         return count;
     }
 
+
+
     //定时检查所有的sql-proxy是否可达
     private void checkReachable() {
         if (healthCheckStatus.compareAndSet(false, true)) {
@@ -365,6 +367,7 @@ public class ConnectionManager {
     private void checkBalance() {
         if (rebalanceStatus.compareAndSet(false, true)) {
             try {
+                checkSqlProxyListFromProvider();
                 rebalance();
                 removeOfflineSqlProxy();
             } catch (Exception e) {
@@ -425,6 +428,34 @@ public class ConnectionManager {
             }
         } catch (Exception e) {
             logger.error("rebalance error", e);
+        }
+    }
+
+    //兜底检查
+    private void checkSqlProxyListFromProvider() {
+        try {
+            List<SqlProxy> newList = sqlProxyProvider.load();
+            if (newList == null) {
+                return;
+            }
+            if (newList.isEmpty()) {
+                return;
+            }
+            List<SqlProxy> oldList = new ArrayList<>(poolMap.keySet());
+            List<SqlProxy> added = new ArrayList<>(newList);
+            added.removeAll(oldList);
+            List<SqlProxy> removed = new ArrayList<>(oldList);
+            removed.removeAll(newList);
+            if (!added.isEmpty()) {
+                Collections.shuffle(added);
+                addSqlProxy(added);
+            }
+            if (!removed.isEmpty()) {
+                Collections.shuffle(removed);
+                removeSqlProxy(removed);
+            }
+        } catch (Exception e) {
+            logger.error("checkSqlProxyListFromProvider error", e);
         }
     }
 
