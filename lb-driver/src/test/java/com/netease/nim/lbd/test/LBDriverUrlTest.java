@@ -39,4 +39,20 @@ public class LBDriverUrlTest {
         Assert.assertEquals("abc", lbDriverUrl.getConfigServerApiKey());
         Assert.assertEquals(2, lbDriverUrl.getInfo().size());
     }
+
+    @Test
+    public void test3() throws SQLException {
+        String url = "jdbc:mysql:lb:remote://10.0.0.1:80/mydatabase?connectTimeout=5000&socketTimeout=60000&configServerApiKey=abc&unsupportedMethodBehavior=ignoreCall&checkBalanceIntervalSeconds=3&checkHealthIntervalSeconds=4&configServerTimeout=6000";
+        LBDriverUrl lbDriverUrl = LBDriverUrlParser.parseUrl(url, new Properties());
+        Assert.assertNotNull(lbDriverUrl);
+        Assert.assertEquals("mydatabase", lbDriverUrl.getSchemaName());
+        Assert.assertEquals("10.0.0.1", lbDriverUrl.getConfigServerHost());
+        Assert.assertEquals(80, lbDriverUrl.getConfigServerPort());
+        Assert.assertEquals(UnsupportedMethodBehavior.IgnoreCall, lbDriverUrl.getUnsupportedMethodBehavior());
+        Assert.assertEquals("abc", lbDriverUrl.getConfigServerApiKey());
+        Assert.assertEquals(2, lbDriverUrl.getInfo().size());
+        Assert.assertEquals(3, lbDriverUrl.getCheckBalanceIntervalSeconds());
+        Assert.assertEquals(4, lbDriverUrl.getCheckHealthIntervalSeconds());
+        Assert.assertEquals(6000, lbDriverUrl.getConfigServerTimeout());
+    }
 }
