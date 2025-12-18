@@ -545,8 +545,10 @@ public class ConnectionManager {
                         continue;
                     }
                     //标记下线
-                    pool.setOffline();
-                    logger.info("sql proxy = {} offline", sqlProxy);
+                    if (pool.isOnline()) {
+                        pool.setOffline();
+                        logger.info("sql proxy = {} offline", sqlProxy);
+                    }
                     //直接关闭空闲连接
                     while (true) {
                         RealConnection connection2Close = pool.getConnection2Close();
