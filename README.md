@@ -68,6 +68,9 @@ jdbc:mysql:lb:remote://config-server.xxx.com:8080/mydatabase?connectTimeout=5000
 
 config-server的部署配置，参考：[config_server](doc/config_server.md)
 
+## 测试用例
+
+参考：[test_case](doc/test_case.md)
 
 ## 示例代码
 
