@@ -57,10 +57,10 @@ jdbc:mysql:lb:local://10.189.0.1:6000,10.189.0.2:6000,10.189.0.3:6000/mydatabase
 jdbc:mysql:lb:remote://config-server.xxx.com:8080/mydatabase?connectTimeout=5000&socketTimeout=10000&configServerApiKey=xxx&configServerSchema=im_user&logStats=true
 ```
 
-* `config-server.xxx.com:8080` 表示config-server的地址，需要host:port的格式，必填
+* `config-server.xxx.com:8080` 表示config-server的地址，需要host:port的格式，如果是443端口，则走https，否则，走http，必填
 * `configServerApiKey` 表示config-server的鉴权key，可选，取决于config-server是否开启了鉴权
 * `configServerSchema` 表示config-server的schema，必填
-* `configServerTimeout` 表示访问config-server的超时，单位毫秒，默认5000
+* `configServerTimeout` 表示访问config-server的超时，单位毫秒，可选，默认5000
 * `logStats` 表示是否打印统计日志，可选，默认false
 * `checkBalanceIntervalSeconds` 负载均衡定时任务的间隔，可选，默认10s
 * `checkHealthIntervalSeconds` 健康检查定时任务的间隔，可选，默认5s

@@ -135,7 +135,14 @@ public class RemoteSqlProxyProvider implements SqlProxyProvider {
             builder.addParam("md5", md5);
         }
         builder.addParam("schema", lbDriverUrl.getConfigServerSchema());
-        String fullUrl = "http://" + lbDriverUrl.getConfigServerHost() + ":" + lbDriverUrl.getConfigServerPort() + "/fetch_sql_proxy_list?" + builder.build();
+        String requestParams = builder.build();
+
+        String fullUrl;
+        if (lbDriverUrl.getConfigServerPort() == 443) {
+            fullUrl = "https://" + lbDriverUrl.getConfigServerHost() + ":" + lbDriverUrl.getConfigServerPort() + "/fetch_sql_proxy_list?" + requestParams;
+        } else {
+            fullUrl = "http://" + lbDriverUrl.getConfigServerHost() + ":" + lbDriverUrl.getConfigServerPort() + "/fetch_sql_proxy_list?" + requestParams;
+        }
 
         HttpURLConnection conn = null;
         try {
@@ -187,8 +194,12 @@ public class RemoteSqlProxyProvider implements SqlProxyProvider {
                     lbDriverUrl.getConfigServerHost() + ":" + lbDriverUrl.getConfigServerPort(), lbDriverUrl.getConfigServerSchema(), e);
             return null;
         } finally {
-            if (conn != null) {
-                conn.disconnect();
+            try {
+                if (conn != null) {
+                    conn.disconnect();
+                }
+            } catch (Exception e) {
+                logger.error("http connection disconnect error", e);
             }
         }
     }
