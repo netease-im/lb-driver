@@ -36,3 +36,4 @@
 * lb-driver减少sql-proxy时，会判断剩余sql-proxy是否为空或者已无可达节点，如果是，则跳过本次操作
 * config-server从etcd/nacos获取配置时，会校验格式，如果校验失败，则跳过，如果校验成功，则更新本地配置
 * config-server会校验etcd/nacos获取到的sql-proxy节点是否telnet能通，如果不能通，则会打印日志/报警，但是不影响下发lb-driver
+* 以上测试基于druid连接池，如果druid连接池版本大于等于1.2.21，需要设置LbdDruidFilter才行

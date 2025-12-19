@@ -7,16 +7,30 @@
 	<artifactId>lb-driver-projects</artifactId>
 	<version>1.0.0-SNAPSHOT</version>
 	<name>
-		load-balance wrapper of mysql-jdbc-driver for proxy-based database, such as OceanBase, TiDB, etc.
+		Load-Balance-Driver, wrapper of mysql-jdbc-driver, suitable for use in databases with proxy architecture, such as OceanBase, TiDB, etc.
 	</name>
 	<packaging>pom</packaging>
+
 	<modules>
 		<module>lb-driver</module>
+		<module>lb-driver-druid</module>
 		<module>lb-driver-config-server</module>
 		<module>lb-driver-config-server-spring-boot-starter</module>
 		<module>lb-driver-config-server-bootstrap</module>
 		<module>lb-driver-example</module>
 	</modules>
+
+	<properties>
+		<fastjson2.version>2.0.60</fastjson2.version>
+		<druid.version>1.2.27</druid.version>
+		<slf4j.version>2.0.17</slf4j.version>
+		<junit.version>4.13.2</junit.version>
+		<mysql-connector.version>5.1.30</mysql-connector.version>
+		<spring.boot.version>3.5.8</spring.boot.version>
+		<concurrentlinkedhashmap.version>1.4.2</concurrentlinkedhashmap.version>
+		<jetcd.version>0.8.6</jetcd.version>
+		<nacos.version>3.1.1</nacos.version>
+	</properties>
 
 	<profiles>
 		<profile>

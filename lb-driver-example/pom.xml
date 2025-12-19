@@ -55,12 +55,17 @@
 		<dependency>
 			<groupId>com.alibaba.fastjson2</groupId>
 			<artifactId>fastjson2</artifactId>
-			<version>2.0.60</version>
+			<version>${fastjson2.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.alibaba</groupId>
 			<artifactId>druid-spring-boot-3-starter</artifactId>
-			<version>1.2.27</version>
+			<version>${druid.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.netease.nim</groupId>
+			<artifactId>lb-driver-druid</artifactId>
+			<version>1.0.0-SNAPSHOT</version>
 		</dependency>
     </dependencies>
 	<build>

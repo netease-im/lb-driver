@@ -1,32 +1,16 @@
 [
   {
-    "schema": "im_user",
-    "auth.enable": true,
     "api.keys":
     [
-      "aaaa",
-      "bbbb",
-      "cccc"
+      "f5928730b5114a188075003c0b8800da",
+      "df644ec14ad944a3b731133004eea022"
     ],
+    "auth.enable": true,
     "proxy":
     [
       "10.59.129.154:2883",
       "10.59.129.155:2883"
-    ]
-  },
-  {
-    "schema": "im_msg",
-    "auth.enable": true,
-    "api.keys":
-    [
-      "asasaas",
-      "bbxxabb",
-      "ccqwqwqcc"
     ],
-    "proxy":
-    [
-      "10.59.129.154:1885",
-      "10.59.129.155:1885"
-    ]
+    "schema": "im_conv_test"
   }
 ]

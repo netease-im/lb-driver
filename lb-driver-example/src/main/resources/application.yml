@@ -18,7 +18,7 @@ spring:
 #      url: jdbc:mysql:lb:local://10.59.129.154:2883,10.59.129.155:2883/test_lbd?connectTimeout=5000&socketTimeout=10000&logStats=true
 #      username: test_lbd_rw@nim_test#nim_ob_test
 #      password: gvu57FgjnDsFzJF
-      url: jdbc:mysql:lb:remote://127.0.0.1:8080/test_lbd?connectTimeout=5000&socketTimeout=10000&configServerApiKey=aaaa&configServerSchema=im_user&logStats=true
+      url: jdbc:mysql:lb:remote://127.0.0.1:8080/test_lbd?connectTimeout=5000&socketTimeout=10000&configServerApiKey=f5928730b5114a188075003c0b8800da&configServerSchema=im_conv_test&logStats=true
       username: test_lbd_rw@nim_test#nim_ob_test
       password: gvu57FgjnDsFzJF
       pool-prepared-statements: false
