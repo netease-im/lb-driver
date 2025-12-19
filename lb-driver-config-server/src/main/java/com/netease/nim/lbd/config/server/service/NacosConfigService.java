@@ -140,7 +140,7 @@ public class NacosConfigService implements ConfigService {
                 }
             });
             //
-            logger.info("schema init success, schema = {}, schemaConfig = {}", schema, JSONObject.toJSONString(schemaConfig));
+            logger.info("schema init success, schema = {}, schemaConfig = {}", schema, ConfigUtils.toJson(schemaConfig));
         } catch (Exception e) {
             logger.error("init schema config error, schema = {}", schema, e);
             throw new IllegalArgumentException("init schema config error, schema = " + schema, e);
@@ -161,7 +161,7 @@ public class NacosConfigService implements ConfigService {
             }
             SchemaConfig oldSchemaConfig = schemaConfigMap.get(schema);
             if (oldSchemaConfig != null && !schemaConfig.equals(oldSchemaConfig)) {
-                logger.info("schema config updated, schema = {}, config = {}", schema, JSONObject.toJSONString(schemaConfig));
+                logger.info("schema config updated, schema = {}, config = {}", schema, ConfigUtils.toJson(schemaConfig));
             }
             schemaConfigMap.put(schema, schemaConfig);
         } catch (Exception e) {

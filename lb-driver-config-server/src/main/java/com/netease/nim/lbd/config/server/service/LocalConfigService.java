@@ -63,7 +63,7 @@ public class LocalConfigService implements ConfigService {
                     throw new IllegalArgumentException("duplicate schema = " + schemaConfig.getSchema());
                 }
                 schemaConfigMap.put(schemaConfig.getSchema(), schemaConfig);
-                logger.info("schema init success, schema = {}, schemaConfig = {}", schemaConfig.getSchema(), JSONObject.toJSONString(schemaConfig));
+                logger.info("schema init success, schema = {}, schemaConfig = {}", schemaConfig.getSchema(), ConfigUtils.toJson(schemaConfig));
             }
             this.schemaConfigMap = schemaConfigMap;
             return true;

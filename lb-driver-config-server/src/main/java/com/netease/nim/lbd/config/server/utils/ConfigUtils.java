@@ -18,6 +18,15 @@ public class ConfigUtils {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigUtils.class);
 
+    public static JSONObject toJson(SchemaConfig schemaConfig) {
+        JSONObject json = new JSONObject();
+        json.put("schema", schemaConfig.getSchema());
+        json.put("auth.enable", schemaConfig.isAuthEnable());
+        json.put("api.keys", schemaConfig.getApiKeys());
+        json.put("proxy", schemaConfig.getProxyList());
+        return json;
+    }
+
     public static SchemaConfig parse(String content) {
         JSONObject json = JSONObject.parseObject(content);
 
