@@ -14,6 +14,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -419,10 +420,12 @@ public class ConnectionManager {
             }
             if (needDrop) {
                 if (target != null) {
+                    logger.info("rebalance, drop connection = {}", target.getSqlProxy());
                     target.close();
                 }
             } else if (needRaise) {
                 if (target != null) {
+                    logger.info("rebalance, raise connection = {}", target.getSqlProxy());
                     syncCreating(pool, target);
                 }
             }
@@ -496,12 +499,22 @@ public class ConnectionManager {
                     if (pool == null) {
                         pool = new SqlProxyConnectionPool(sqlProxy);
                     }
-                    if (reachable) {
+                    boolean log = false;
+                    if (reachable && !pool.isReachable()) {
                         pool.setReachable();
-                    } else {
+                        logger.info("sql proxy = {} online, reachable = true", sqlProxy);
+                        log = true;
+                    } else if (!reachable && pool.isReachable()) {
                         pool.setUnreachable();
+                        logger.info("sql proxy = {} online, reachable = false", sqlProxy);
+                        log = true;
                     }
-                    pool.setOnline();
+                    if (!pool.isOnline()) {
+                        pool.setOnline();
+                        if (!log) {
+                            logger.info("sql proxy = {} online, reachable = {}", sqlProxy, reachable);
+                        }
+                    }
                     poolMap.put(sqlProxy, pool);
                 } catch (Exception e) {
                     logger.error("add sql proxy = {} error", sqlProxy, e);
@@ -587,6 +600,9 @@ public class ConnectionManager {
 
         private boolean reachable = true;//是否可达
         private boolean online = true;//是否在线
+        private final AtomicLong createCount = new AtomicLong(0);
+        private final AtomicLong closeCount = new AtomicLong(0);
+        private final AtomicLong reuseCount = new AtomicLong(0);
 
         //空闲的连接
         private final Deque<RealConnection> idleConnections = new ArrayDeque<>();
@@ -630,6 +646,9 @@ public class ConnectionManager {
                     usingCount--;
                 }
             }
+            if (needClose) {
+                closeCount.incrementAndGet();
+            }
             return needClose;//是否需要关闭，在上层关闭
         }
 
@@ -639,6 +658,9 @@ public class ConnectionManager {
                 connection = new RealConnection(sqlProxy, LBDriverEnv.getRealDriver(), lbDriverUrl);
                 hostTotalCount.increaseAndGet();
                 totalCount++;
+                createCount.incrementAndGet();
+            } else {
+                reuseCount.incrementAndGet();
             }
             if (use) {
                 usingConnections.add(connection);
@@ -654,6 +676,7 @@ public class ConnectionManager {
             RealConnection connection = idleConnections.poll();
             if (connection != null) {
                 totalCount--;
+                closeCount.incrementAndGet();
                 return connection;
             } else {
                 return null;
@@ -699,6 +722,9 @@ public class ConnectionManager {
             sqlProxyStats.setReachable(reachable);
             sqlProxyStats.setUsing(usingConnections.size());
             sqlProxyStats.setIdle(idleConnections.size());
+            sqlProxyStats.setCreate(createCount.getAndSet(0));
+            sqlProxyStats.setReuse(reuseCount.getAndSet(0));
+            sqlProxyStats.setClose(closeCount.getAndSet(0));
             return sqlProxyStats;
         }
     }

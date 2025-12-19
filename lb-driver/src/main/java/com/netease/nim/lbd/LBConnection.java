@@ -350,7 +350,6 @@ public class LBConnection implements Connection {
         if (isClosed) {
             return;
         }
-
         closeStatements();
         if (!isAutoCommit) {
             rollback();
