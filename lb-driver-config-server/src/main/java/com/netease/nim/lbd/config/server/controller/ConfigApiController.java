@@ -20,10 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
@@ -73,7 +70,7 @@ public class ConfigApiController implements InitializingBean {
             return not_modify;
         }
         //
-        List<String> sqlProxyLists = schemaConfig.getProxyList();
+        List<String> sqlProxyLists = new ArrayList<>(schemaConfig.getProxyList());
         Collections.sort(sqlProxyLists);
         String newMd5 = MD5Util.md5(JSONObject.toJSONString(sqlProxyLists));
         md5CacheMap.put(schema, newMd5);
