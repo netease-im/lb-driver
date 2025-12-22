@@ -541,8 +541,9 @@ public class ConnectionManager {
                 if (pool == null) {
                     continue;
                 }
-                if (pool.isOnline() || pool.isReachable()) {
+                if (pool.isOnline() && pool.isReachable()) {
                     allSqlProxyOfflineOrUnreachable = false;
+                    break;
                 }
             }
             if (allSqlProxyOfflineOrUnreachable) {
