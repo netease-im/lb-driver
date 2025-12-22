@@ -7,6 +7,9 @@ import java.util.List;
  */
 public class LbdStats {
 
+    private int logicalCount = 0;
+    private int totalCount = 0;
+    private int usingCount = 0;
     private List<SqlProxyStats> statsList;
 
     public List<SqlProxyStats> getStatsList() {
@@ -90,5 +93,29 @@ public class LbdStats {
         public void setClose(long close) {
             this.close = close;
         }
+    }
+
+    public int getLogicalCount() {
+        return logicalCount;
+    }
+
+    public void setLogicalCount(int logicalCount) {
+        this.logicalCount = logicalCount;
+    }
+
+    public int getTotalCount() {
+        return totalCount;
+    }
+
+    public void setTotalCount(int totalCount) {
+        this.totalCount = totalCount;
+    }
+
+    public int getUsingCount() {
+        return usingCount;
+    }
+
+    public void setUsingCount(int usingCount) {
+        this.usingCount = usingCount;
     }
 }

@@ -46,7 +46,8 @@ public class LBContainer {
     private void logStats() {
         try {
             LbdStats stats = connectionManager.stats();
-            statsLogger.info("lbd stats, sql-proxy count = {}", stats.getStatsList().size());
+            statsLogger.info("lbd stats, sql-proxy-count={}, logic-connect-count={}, total-connect-count={}, using-connect-count={}",
+                    stats.getStatsList().size(), stats.getLogicalCount(), stats.getTotalCount(), stats.getUsingCount());
             for (LbdStats.SqlProxyStats sqlProxyStats : stats.getStatsList()) {
                 statsLogger.info("sql-proxy={},online={},reachable={},using={},idle={},create={},reuse={},close={}",
                         sqlProxyStats.getSqlProxy(), sqlProxyStats.isOnline(), sqlProxyStats.isReachable(),

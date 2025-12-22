@@ -252,16 +252,19 @@ public class ConnectionManager {
      * @return stats
      */
     public LbdStats stats() {
+        LbdStats lbdStats = new LbdStats();
         List<LbdStats.SqlProxyStats > statsList = new ArrayList<>();
         lock.lock();
         try {
+            lbdStats.setLogicalCount(logicalCount);
+            lbdStats.setTotalCount(totalCount);
+            lbdStats.setUsingCount(usingCount);
             for (Map.Entry<SqlProxy, SqlProxyConnectionPool> entry : poolMap.entrySet()) {
                 statsList.add(entry.getValue().stats());
             }
         } finally {
             lock.unlock();
         }
-        LbdStats lbdStats = new LbdStats();
         lbdStats.setStatsList(statsList);
         return lbdStats;
     }
@@ -387,12 +390,17 @@ public class ConnectionManager {
             RealConnection target = null;
             boolean needDrop;
             boolean needRaise;
+            Map<String, String> infoMap = new HashMap<>();
             lock.lock();
             try {
+                infoMap.put("logicCount", String.valueOf(logicalCount));
+                infoMap.put("totalCount", String.valueOf(totalCount));
+
                 needDrop = logicalCount < totalCount;
                 needRaise = false;
                 if (!needDrop) {
                     needRaise = logicalCount > totalCount || !balanceQueue.isCountBalanced();
+                    infoMap.put("isCountBalanced", String.valueOf(balanceQueue.isCountBalanced()));
                 }
                 if (needDrop) {
                     pool = balanceQueue.peekTail();
@@ -420,12 +428,12 @@ public class ConnectionManager {
             }
             if (needDrop) {
                 if (target != null) {
-                    logger.info("rebalance, drop connection = {}", target.getSqlProxy());
+                    logger.info("rebalance, drop connection = {}, info = {}", target.getSqlProxy(), infoMap);
                     target.close();
                 }
             } else if (needRaise) {
                 if (target != null) {
-                    logger.info("rebalance, raise connection = {}", target.getSqlProxy());
+                    logger.info("rebalance, raise connection = {}, info = {}", target.getSqlProxy(), infoMap);
                     syncCreating(pool, target);
                 }
             }
@@ -678,6 +686,7 @@ public class ConnectionManager {
             if (connection != null) {
                 totalCount--;
                 closeCount.incrementAndGet();
+                hostTotalCount.decreaseAndGet();
                 return connection;
             } else {
                 return null;
