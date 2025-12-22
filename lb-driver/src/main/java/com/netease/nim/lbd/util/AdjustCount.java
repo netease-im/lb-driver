@@ -14,31 +14,14 @@ public class AdjustCount<E> {
 		this.queue = queue;
 	}
 	
-	public int increaseAndGet() {
+	public void increase() {
 		queue.incAndAdjust(this);
-		return count;
 	}
 	
-	public int decreaseAndGet() {
+	public void decrease() {
 		queue.decAndAdjust(this);
-		return count;
 	}
-	
-	protected void inc() {
-		count++;
-	}
-	
-	protected void dec() {
-		count--;
-	}
-	
-	public void set(int count) {
-		if (this.count != count) {
-			this.count = count;
-			queue.add(this);
-		}
-	}
-	
+
 	public int get() {
 		return count;
 	}
@@ -59,5 +42,15 @@ public class AdjustCount<E> {
 			queue.add(this);
 			isQueued = true;
 		}
+	}
+
+	//
+	protected void inc() {
+		count++;
+	}
+
+	//
+	protected void dec() {
+		count--;
 	}
 }

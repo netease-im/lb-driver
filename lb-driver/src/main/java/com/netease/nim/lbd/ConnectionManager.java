@@ -639,18 +639,18 @@ public class ConnectionManager {
             boolean needClose = close;
             if (close || !online || !reachable || !connection.isHealthy()) {
                 if (usingConnections.remove(connection)) {
-                    hostTotalCount.decreaseAndGet();
-                    hostActiveCount.decreaseAndGet();
+                    hostTotalCount.decrease();
+                    hostActiveCount.decrease();
                     usingCount--;
                     totalCount--;
                 } else if (idleConnections.remove(connection)) {
-                    hostTotalCount.decreaseAndGet();
+                    hostTotalCount.decrease();
                     totalCount--;
                 }
                 needClose = true;
             } else {
                 if (usingConnections.remove(connection)) {
-                    hostActiveCount.decreaseAndGet();
+                    hostActiveCount.decrease();
                     idleConnections.add(connection);
                     usingCount--;
                 }
@@ -665,7 +665,7 @@ public class ConnectionManager {
             RealConnection connection = create ? null : idleConnections.poll();
             if (connection == null) {
                 connection = new RealConnection(sqlProxy, LBDriverEnv.getRealDriver(), lbDriverUrl);
-                hostTotalCount.increaseAndGet();
+                hostTotalCount.increase();
                 totalCount++;
                 createCount.incrementAndGet();
             } else {
@@ -673,7 +673,7 @@ public class ConnectionManager {
             }
             if (use) {
                 usingConnections.add(connection);
-                hostActiveCount.increaseAndGet();
+                hostActiveCount.increase();
                 usingCount++;
             } else {
                 idleConnections.add(connection);
@@ -686,7 +686,7 @@ public class ConnectionManager {
             if (connection != null) {
                 totalCount--;
                 closeCount.incrementAndGet();
-                hostTotalCount.decreaseAndGet();
+                hostTotalCount.decrease();
                 return connection;
             } else {
                 return null;

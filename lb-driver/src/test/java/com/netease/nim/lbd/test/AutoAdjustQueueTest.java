@@ -17,23 +17,23 @@ public class AutoAdjustQueueTest {
         AdjustCount<String> count3 = queue.createCountElement("a3");
         AdjustCount<String> count4 = queue.createCountElement("a4");
 
-        count1.increaseAndGet();
-        count1.increaseAndGet();
-        count2.increaseAndGet();
-        count3.increaseAndGet();
-        count3.increaseAndGet();
-        count3.increaseAndGet();
-        count4.increaseAndGet();
+        count1.increase();
+        count1.increase();
+        count2.increase();
+        count3.increase();
+        count3.increase();
+        count3.increase();
+        count4.increase();
 
 
         System.out.println(queue.peekHead());
-        count4.increaseAndGet();//2
+        count4.increase();//2
         System.out.println(queue.peekHead());
-        count2.increaseAndGet();//2
+        count2.increase();//2
         System.out.println(queue.peekHead());
-        count4.decreaseAndGet();
-        count4.decreaseAndGet();
-        count4.decreaseAndGet();//0
+        count4.decrease();
+        count4.decrease();
+        count4.decrease();//0
         System.out.println(queue.peekHead());
     }
 }
