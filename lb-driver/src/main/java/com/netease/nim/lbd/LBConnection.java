@@ -58,13 +58,17 @@ public class LBConnection implements Connection {
             SQLException sqlEx = (SQLException) error;
             if (realConnection != null) {
                 if (MySqlExceptionSorter.isExceptionFatal(sqlEx)) {
+                    if (realConnection != null) {
+                        realConnection.markUnhealthy();
+                    }
                     if (isTransactionBegun()) {
                         setTransactionBegun(false);
                     }
                     closeStatements();
-                    realConnection.markUnhealthy();
-                    connectionManager.returnConnection(realConnection);
-                    realConnection = null;
+                    if (realConnection != null) {
+                        connectionManager.returnConnection(realConnection);
+                        realConnection = null;
+                    }
                 }
             }
             return sqlEx;
