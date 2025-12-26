@@ -1,11 +1,13 @@
-package com.netease.nim.lbd.util;
+package com.netease.nim.lbd;
 
+import java.net.SocketTimeoutException;
 import java.sql.SQLException;
 import java.sql.SQLRecoverableException;
 
-public class MySqlExceptionSorter {
+public class MySqlExceptionSorter implements ExceptionSorter {
 
-    public static boolean isExceptionFatal(SQLException e) {
+    @Override
+    public boolean isExceptionFatal(SQLException e) {
         if (e instanceof SQLRecoverableException) {
             return true;
         }
@@ -40,14 +42,22 @@ public class MySqlExceptionSorter {
                 // Access denied
             case 1142: // ER_TABLEACCESS_DENIED_ERROR
             case 1227: // ER_SPECIFIC_ACCESS_DENIED_ERROR
+
+            case 1023: // ER_ERROR_ON_CLOSE
+
+            case 1290: // ER_OPTION_PREVENTS_STATEMENT
                 return true;
             default:
                 break;
         }
 
+        // for oceanbase
+        if (errorCode >= -9000 && errorCode <= -8000) {
+            return true;
+        }
+
         String className = e.getClass().getName();
-        if ("com.mysql.jdbc.CommunicationsException".equals(className)
-                || "com.mysql.jdbc.exceptions.jdbc4.CommunicationsException".equals(className)) {
+        if (className.endsWith(".CommunicationsException")) {
             return true;
         }
 
@@ -60,10 +70,26 @@ public class MySqlExceptionSorter {
 
             final String errorText = message.toUpperCase();
 
-            return (errorCode == 0 && (errorText.contains("COMMUNICATIONS LINK FAILURE")) //
+            if ((errorCode == 0 && (errorText.contains("COMMUNICATIONS LINK FAILURE")) //
                     || errorText.contains("COULD NOT CREATE CONNECTION")) //
                     || errorText.contains("NO DATASOURCE") //
-                    || errorText.contains("NO ALIVE DATASOURCE");
+                    || errorText.contains("NO ALIVE DATASOURCE")) {
+                return true;
+            }
+        }
+
+        Throwable cause = e.getCause();
+        for (int i = 0; i < 5 && cause != null; ++i) {
+            if (cause instanceof SocketTimeoutException) {
+                return true;
+            }
+
+            className = cause.getClass().getName();
+            if (className.endsWith(".CommunicationsException")) {
+                return true;
+            }
+
+            cause = cause.getCause();
         }
 
         return false;

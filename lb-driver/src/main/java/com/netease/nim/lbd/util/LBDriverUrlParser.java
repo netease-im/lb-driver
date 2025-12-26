@@ -30,6 +30,7 @@ public class LBDriverUrlParser {
     private static final String CHECK_BALANCE_INTERVAL_SECONDS = "checkBalanceIntervalSeconds";
     private static final String CHECK_HEALTH_INTERVAL_SECONDS = "checkHealthIntervalSeconds";
     private static final String CONFIG_SERVER_TIMEOUT = "configServerTimeout";
+    private static final String EXCEPTION_SORTER_CLASS_NAME = "exceptionSorter";
 
     public static LBDriverUrl parseUrl(String url, Properties info) throws SQLException {
         if (url == null || url.isEmpty()) {
@@ -72,6 +73,7 @@ public class LBDriverUrlParser {
         int checkBalanceIntervalSeconds = Constants.CHECK_BALANCE_INTERVAL_SECONDS;
         int checkHealthIntervalSeconds = Constants.CHECK_HEALTH_INTERVAL_SECONDS;
         int configServerTimeout = Constants.CONFIG_SERVER_TIMEOUT;
+        String exceptionSorterClassName = Constants.EXCEPTION_SORTER_CLASS_NAME;
 
         String addrs = split[0];
         String[] schemaAndProps = split[1].split("\\?");
@@ -110,6 +112,9 @@ public class LBDriverUrlParser {
                     case CONFIG_SERVER_TIMEOUT:
                         configServerTimeout = Integer.parseInt(value);
                         break;
+                    case EXCEPTION_SORTER_CLASS_NAME:
+                        exceptionSorterClassName = value;
+                        break;
                     default:
                         urlProps.setProperty(key, value);
                         break;
@@ -126,6 +131,7 @@ public class LBDriverUrlParser {
         builder.configServerTimeout(configServerTimeout);
         builder.checkBalanceIntervalSeconds(checkBalanceIntervalSeconds);
         builder.checkHealthIntervalSeconds(checkHealthIntervalSeconds);
+        builder.exceptionSorter(exceptionSorterClassName);
 
         if (type == LBDriverType.remote) {
             String[] split1 = addrs.split(":");

@@ -19,5 +19,6 @@ public class Constants {
     public static final int CHECK_BALANCE_INTERVAL_SECONDS = 10;
     public static final int CHECK_HEALTH_INTERVAL_SECONDS = 5;
     public static final int CONFIG_SERVER_TIMEOUT = 5000;
+    public static final String EXCEPTION_SORTER_CLASS_NAME = MySqlExceptionSorter.class.getName();
 
 }

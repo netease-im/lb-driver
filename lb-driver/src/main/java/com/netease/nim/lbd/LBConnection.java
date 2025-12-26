@@ -1,7 +1,5 @@
 package com.netease.nim.lbd;
 
-import com.netease.nim.lbd.util.MySqlExceptionSorter;
-
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.Executor;
@@ -57,7 +55,7 @@ public class LBConnection implements Connection {
         if (error instanceof SQLException) {
             SQLException sqlEx = (SQLException) error;
             if (realConnection != null) {
-                if (MySqlExceptionSorter.isExceptionFatal(sqlEx)) {
+                if (lbDriverUrl.getExceptionSorter().isExceptionFatal(sqlEx)) {
                     if (realConnection != null) {
                         realConnection.markUnhealthy();
                     }

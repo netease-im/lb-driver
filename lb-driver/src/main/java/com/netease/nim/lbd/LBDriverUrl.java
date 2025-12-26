@@ -31,6 +31,8 @@ public class LBDriverUrl {
 
     private UnsupportedMethodBehavior unsupportedMethodBehavior;
 
+    private ExceptionSorter exceptionSorter = new MySqlExceptionSorter();
+
     private LBDriverUrl() {
     }
 
@@ -88,6 +90,10 @@ public class LBDriverUrl {
 
     public int getConfigServerTimeout() {
         return configServerTimeout;
+    }
+
+    public ExceptionSorter getExceptionSorter() {
+        return exceptionSorter;
     }
 
     public static class Builder {
@@ -149,6 +155,17 @@ public class LBDriverUrl {
 
         public void configServerTimeout(int configServerTimeout) {
             lbDriverUrl.configServerTimeout = configServerTimeout;
+        }
+
+        public void exceptionSorter(String exceptionSorterClassName) {
+            try {
+                if (exceptionSorterClassName == null) {
+                    return;
+                }
+                lbDriverUrl.exceptionSorter = (ExceptionSorter) Class.forName(exceptionSorterClassName).getConstructor().newInstance();
+            } catch (Exception e) {
+                throw new IllegalArgumentException(e);
+            }
         }
 
         public LBDriverUrl build() {
