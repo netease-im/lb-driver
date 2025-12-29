@@ -18,11 +18,11 @@ lbd-driver-config-server:
   config-type: etcd
   config:
     "etcd.target": "ip:///etcd0:2379,etcd1:2379,etcd2:2379"
-    #    "etcd.endpoints": "http://etcd0:2379,http://etcd1:2379,http://etcd2:2379" #etcd.target和etcd.endpoints二选一，优先使用etcd.target
-    #    "etcd.user": "xx"
-    #    "etcd.password": "xx"
-    #    "etcd.namespace": "xx"
-    #    "etcd.authority": "xx"
+#    "etcd.endpoints": "http://etcd0:2379,http://etcd1:2379,http://etcd2:2379" #etcd.target和etcd.endpoints二选一，优先使用etcd.target
+#    "etcd.user": "xx"
+#    "etcd.password": "xx"
+#    "etcd.namespace": "xx"
+#    "etcd.authority": "xx"
     "etcd.config.key.prefix": "/obproxy/yunxin"
 ```
 * 其中 `/obproxy/yunxin/{schema}` 表示某个schema的配置
@@ -35,9 +35,13 @@ lbd-driver-config-server:
   config-type: nacos
   config:
     "nacos.serverAddr": "127.0.0.1:8848"
-    "nacos.group": "yunxin"
+    "nacos.group": "xxx"
+    "nacos.username": "xxx"
+    "nacos.password": "xxx"
+    "nacos.init.schema.list": "xxx,yyy,zzz" #逗号分隔
 ```
 * 其中 `dataId={schema}` 表示某个schema的配置
+* 其中 `nacos.init.schema.list` 表示初始化时加载的schema列表
 
 
 ### 使用本地配置文件作为数据源
@@ -47,7 +51,7 @@ lbd-driver-config-server:
   config-type: local
   config:
     "local.config.file": "config.json"
-    #"local.config.file.path": "/xxx/xx/config.json"
+#    "local.config.file.path": "/xxx/xx/config.json"
 ```
 * `config.json` 是一个json数组，每个元素表示一个schema
 * 可以配置文件名（classpath下），也可以配置文件绝对路径（优先级更高）

@@ -64,6 +64,13 @@ public class NacosConfigService implements ConfigService {
                     throw new IllegalArgumentException("illegal 'nacos.timeoutMs'");
                 }
             }
+            String schemaList = config.get("nacos.init.schema.list");
+            if (schemaList != null) {
+                String[] split = schemaList.split(",");
+                for (String schema : split) {
+                    initSchema(schema);
+                }
+            }
             schedule();
             logger.info("NacosConfigService init success, nacosProps = {}", nacosProps);
         } catch (Exception e) {

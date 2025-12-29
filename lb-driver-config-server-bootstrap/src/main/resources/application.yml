@@ -17,38 +17,19 @@ spring:
 #    #    "etcd.password": "xx"
 #    #    "etcd.namespace": "xx"
 #    #    "etcd.authority": "xx"
-#    "etcd.config.key": "/xx/xxx"
+#    "etcd.config.key.prefix": "/xx/xxx"
 
 
 ###=====nacos=====
-
-#  lbd-driver-config-server:
-#    config-type: nacos
-#    config:
-#      "nacos.serverAddr": "127.0.0.1:8848"
-#      "nacos.group": "xxx"
-
-
-
-###=====local=====
 
 #lbd-driver-config-server:
-#  config-type: local
+#  config-type: nacos
 #  config:
-#    "local.config.file": "config.json"
-
-
-
-
-###=====nacos=====
-
-#  lbd-driver-config-server:
-#    config-type: nacos
-#    config:
-#      "nacos.serverAddr": "127.0.0.1:8848"
-#      "nacos.dataId": "xxx"
-#      "nacos.group": "xxx"
-
+#    "nacos.serverAddr": "127.0.0.1:8848"
+#    "nacos.group": "xxx"
+#    "nacos.username": "xxx"
+#    "nacos.password": "xxx"
+#    "nacos.init.schema.list": "xxx,yyy,zzz" #逗号分隔
 
 
 ###=====local=====
