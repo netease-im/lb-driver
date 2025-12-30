@@ -14,7 +14,7 @@
 ### 使用etcd作为数据源
 
 ```yaml
-lbd-driver-config-server:
+lb-driver-config-server:
   config-type: etcd
   config:
     "etcd.target": "ip:///etcd0:2379,etcd1:2379,etcd2:2379"
@@ -31,7 +31,7 @@ lbd-driver-config-server:
 ### 使用nacos作为数据源
 
 ```yaml
-lbd-driver-config-server:
+lb-driver-config-server:
   config-type: nacos
   config:
     "nacos.serverAddr": "127.0.0.1:8848"
@@ -47,7 +47,7 @@ lbd-driver-config-server:
 ### 使用本地配置文件作为数据源
 
 ```yaml
-lbd-driver-config-server:
+lb-driver-config-server:
   config-type: local
   config:
     "local.config.file": "config.json"
@@ -60,8 +60,8 @@ lbd-driver-config-server:
 ### 配置示例
 
 * config-server 从数据源获取配置，配置要求为json结构，如下：
-* `etcd` 或者 `nacos` 更新配置后，config-server会自动监听配置变更，lbd-driver也会在几秒内获取到最新的sql-proxy节点列表
-* `local` 更新配置后，需要调用 `/reload` 接口才会更新配置，随后，lbd-driver也会在几秒内获取到最新的sql-proxy节点列表
+* `etcd` 或者 `nacos` 更新配置后，config-server会自动监听配置变更，lb-driver也会在几秒内获取到最新的sql-proxy节点列表
+* `local` 更新配置后，需要调用 `/reload` 接口才会更新配置，随后，lb-driver也会在几秒内获取到最新的sql-proxy节点列表
 
 ```json
 {
@@ -82,7 +82,7 @@ lbd-driver-config-server:
 ```
 
 * `schema` 表示sql-proxy归属的schema
-* `auth.enable` 表示lbd-driver请求config-server时是否鉴权，默认false
+* `auth.enable` 表示lb-driver请求config-server时是否鉴权，默认false
 * `api.keys` 表示鉴权的api-key，支持多个
 * `proxy` 表示配置的sql-proxy节点列表
 

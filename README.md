@@ -36,7 +36,7 @@ driver=com.netease.nim.lbd.LBDriver
 
 ### 本地模式
 
-* 地址串配置的sql-proxy的节点列表，lbd-driver直接从地址串中获取完整的sql-proxy节点列表，lbd-driver会自动剔除不可用的sql-proxy节点
+* 地址串配置的sql-proxy的节点列表，lb-driver直接从地址串中获取完整的sql-proxy节点列表，lb-driver会自动剔除不可用的sql-proxy节点
 
 地址串示例：
 ```
@@ -52,7 +52,7 @@ jdbc:mysql:lb:local://10.189.0.1:6000,10.189.0.2:6000,10.189.0.3:6000/mydatabase
 
 ### config-server模式
 
-* 地址串配置的是config-server的地址，lbd-driver从config-server动态获取sql-proxy节点列表，从而可以不重启业务做sql-proxy的扩缩容
+* 地址串配置的是config-server的地址，lb-driver从config-server动态获取sql-proxy节点列表，从而可以不重启业务做sql-proxy的扩缩容
 * config-server是无状态服务，可以部署多个节点，挂在nginx/nlb后端，达到集群高可用
 
 地址串示例：

@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.Map;
 
-@ConfigurationProperties(prefix = "lbd-driver-config-server")
+@ConfigurationProperties(prefix = "lb-driver-config-server")
 public class LbdConfigServerConfiguration {
 
     private ConfigType configType;
