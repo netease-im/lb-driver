@@ -2,11 +2,14 @@ package com.netease.nim.lbd;
 
 import com.netease.nim.lbd.util.AdjustCount;
 import com.netease.nim.lbd.util.AutoAdjustQueue;
+import com.netease.nim.lbd.util.CloseUtils;
 import com.netease.nim.lbd.util.NamedThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -316,8 +319,6 @@ public class ConnectionManager {
         return count;
     }
 
-
-
     //定时检查所有的sql-proxy是否可达
     private void checkReachable() {
         if (healthCheckStatus.compareAndSet(false, true)) {
@@ -331,7 +332,7 @@ public class ConnectionManager {
                     if (!pool.isOnline()) {
                         continue;
                     }
-                    boolean reachable = checkReachable0(sqlProxy);
+                    boolean reachable = checkReachable0(sqlProxy, pool);
                     lock.lock();
                     try {
                         if (reachable && !pool.isReachable()) {
@@ -354,17 +355,44 @@ public class ConnectionManager {
     }
 
     //检查sql proxy是否可达
-    private boolean checkReachable0(SqlProxy sqlProxy) {
-        RealConnection realConnection = new RealConnection(sqlProxy, LBDriverEnv.getRealDriver(), lbDriverUrl);
-        try {
-            realConnection.syncCreating();
-            return true;
-        } catch (Exception e) {
-            logger.warn("sql proxy = {} not reachable", sqlProxy);
-            return false;
-        } finally {
-            realConnection.close();
+    private boolean checkReachable0(SqlProxy sqlProxy, SqlProxyConnectionPool pool) {
+        RealConnection connection;
+        if (pool == null) {
+            connection = new RealConnection(sqlProxy, LBDriverEnv.getRealDriver(), lbDriverUrl);
+        } else {
+            connection = pool.checkReadableConnection;
+            if (connection == null) {
+                connection = new RealConnection(sqlProxy, LBDriverEnv.getRealDriver(), lbDriverUrl);
+                pool.checkReadableConnection = connection;
+            }
         }
+        ResultSet rs = null;
+        Statement stmt = null;
+        boolean reachable;
+        boolean exception = false;
+        try {
+            connection.syncCreating();
+            stmt = connection.getPhysicalConnection().createStatement();
+            rs = stmt.executeQuery(Constants.VALIDATION_QUERY);
+            reachable = rs.next();
+        } catch (Exception e) {
+            exception = true;
+            reachable = false;
+        }
+        if (!reachable) {
+            logger.warn("sql proxy = {} not reachable", sqlProxy);
+        }
+        CloseUtils.close(rs);
+        CloseUtils.close(stmt);
+        if (pool == null) {
+            CloseUtils.close(connection);
+        } else {
+            if (exception) {
+                CloseUtils.close(connection);
+                pool.checkReadableConnection = null;
+            }
+        }
+        return reachable;
     }
 
     //定时检查是否连接数均衡
@@ -474,6 +502,8 @@ public class ConnectionManager {
     private void removeOfflineSqlProxy() {
         try {
             Set<SqlProxy> set = new HashSet<>(poolMap.keySet());
+            Set<RealConnection> toClosedConnection = new HashSet<>();
+            Set<SqlProxy> offlinedSqlProxySet = new HashSet<>();
             for (SqlProxy sqlProxy : set) {
                 lock.lock();
                 try {
@@ -481,13 +511,23 @@ public class ConnectionManager {
                     if (pool != null && !pool.isOnline() && pool.isConnectionZero()) {
                         poolMap.remove(sqlProxy);
                         connectErrorCountMap.remove(sqlProxy);
-                        logger.info("offline sql proxy = {} removed for connection 0", sqlProxy);
+                        RealConnection removed = pool.checkReadableConnection;
+                        if (removed != null) {
+                            toClosedConnection.add(removed);
+                        }
+                        offlinedSqlProxySet.add(sqlProxy);
                     }
                 } catch (Exception e) {
                     logger.error("remove offline sql proxy error, sql proxy = {}", sqlProxy, e);
                 } finally {
                     lock.unlock();
                 }
+            }
+            for (SqlProxy sqlProxy : offlinedSqlProxySet) {
+                logger.info("offline sql proxy = {} removed for connection 0", sqlProxy);
+            }
+            for (RealConnection realConnection : toClosedConnection) {
+                CloseUtils.close(realConnection);
             }
         } catch (Exception e) {
             logger.error("remove offline sql proxy error", e);
@@ -500,7 +540,7 @@ public class ConnectionManager {
                 return;
             }
             for (SqlProxy sqlProxy : list) {
-                boolean reachable = checkReachable0(sqlProxy);
+                boolean reachable = checkReachable0(sqlProxy, null);
                 lock.lock();
                 try {
                     SqlProxyConnectionPool pool = poolMap.get(sqlProxy);
@@ -612,6 +652,9 @@ public class ConnectionManager {
         private final AtomicLong createCount = new AtomicLong(0);
         private final AtomicLong closeCount = new AtomicLong(0);
         private final AtomicLong reuseCount = new AtomicLong(0);
+
+        //用于检测健康检查的链接
+        private RealConnection checkReadableConnection;
 
         //空闲的连接
         private final Deque<RealConnection> idleConnections = new ArrayDeque<>();

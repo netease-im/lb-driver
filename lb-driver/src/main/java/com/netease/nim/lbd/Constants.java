@@ -14,6 +14,8 @@ public class Constants {
 
     public static final String MYSQL_DRIVER_URL_PREFIX = "jdbc:mysql://";
 
+    public static final String VALIDATION_QUERY = "/* ping */ SELECT 1";
+
     public static final UnsupportedMethodBehavior UNSUPPORTED_METHOD_BEHAVIOR = UnsupportedMethodBehavior.ThrowException;
     public static final boolean LOG_STATS = false;
     public static final int CHECK_BALANCE_INTERVAL_SECONDS = 10;
