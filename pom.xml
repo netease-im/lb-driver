@@ -7,8 +7,11 @@
 	<artifactId>lb-driver-projects</artifactId>
 	<version>1.0.0</version>
 	<name>
-		Load-Balance-Driver, wrapper of mysql-jdbc-driver, suitable for use in databases with proxy architecture, such as OceanBase, TiDB, etc.
+		lb-driver
 	</name>
+	<description>
+		Load-Balance-Driver, wrapper of mysql-jdbc-driver, suitable for use in databases with proxy architecture, such as OceanBase, TiDB, etc.
+	</description>
 	<packaging>pom</packaging>
 
 	<modules>
