@@ -6,7 +6,7 @@
 
 ### config-server的部署
 
-* 下载jar包，地址：xxx；或者自行编译 `lb-driver-config-server-bootstrap`
+* 下载jar包，地址：[lb-driver-config-server-bootstrap-1.0.0.jar](https://github.com/netease-im/lb-driver/releases/download/v1.0.0/lb-driver-config-server-bootstrap-1.0.0.jar)；或者自行编译 `lb-driver-config-server-bootstrap`
 * 参考 [application.yml](../lb-driver-config-server-bootstrap/src/main/resources/application.yml) 修改成适合你自己的 `application.yml`
 * 参考 [logback-example.xml](../lb-driver-config-server-bootstrap/src/main/resources/logback-example.xml) 修改成适合你自己的 `logback.xml`
 * 参考 [startup.sh](startup.sh) 修改：java_home、jar包路径、application路径、logback.xml路径等，随后启动即可
