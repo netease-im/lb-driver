@@ -369,14 +369,12 @@ public class ConnectionManager {
         ResultSet rs = null;
         Statement stmt = null;
         boolean reachable;
-        boolean exception = false;
         try {
             connection.syncCreating();
             stmt = connection.getPhysicalConnection().createStatement();
             rs = stmt.executeQuery(Constants.VALIDATION_QUERY);
             reachable = rs.next();
         } catch (Exception e) {
-            exception = true;
             reachable = false;
         }
         if (!reachable) {
@@ -387,7 +385,7 @@ public class ConnectionManager {
         if (pool == null) {
             CloseUtils.close(connection);
         } else {
-            if (exception) {
+            if (!reachable) {
                 CloseUtils.close(connection);
                 pool.checkReadableConnection = null;
             }
