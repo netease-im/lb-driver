@@ -12,10 +12,8 @@ import java.util.Properties;
 
 /**
  * 从config-server获取sql-proxy列表，此时host:port是config-server的地址，仅能填一个，可以是域名
- * <code>jdbc:mysql:lb:remote://config-server.xxx.com:8080/mydatabase?connectTimeout=5000&socketTimeout=10000&configServerApiKey=xxx&configServerSchema=im_user&logStats=true</code>
  * <p>
  * 从地址串里获取sql-proxy列表，此时host:port是sql-proxy的列表，需要填多个达到高可用的效果
- * <code>jdbc:mysql:lb:local://10.189.0.1:6000,10.189.0.2:6000,10.189.0.3:6000/mydatabase?connectTimeout=5000&socketTimeout=10000&logStats=true</code>
  * <p>
  * Created by caojiajun on 2025/12/3
  */

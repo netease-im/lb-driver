@@ -19,10 +19,18 @@ public class AutoAdjustQueue<E> {
 	private int size = 0;
 	
 	private final Random random = new Random(System.currentTimeMillis());
-	
+
+	/**
+	 * AutoAdjustQueue
+	 */
 	public AutoAdjustQueue() {
 	}
-	
+
+	/**
+	 * createCountElement
+	 * @param container container
+	 * @return AdjustCount
+	 */
 	public AdjustCount<E> createCountElement(E container) {
 		AdjustCount<E> count = new AdjustCount<E>(container, 0, this);
 		Node node = new Node(count);
@@ -37,7 +45,11 @@ public class AutoAdjustQueue<E> {
 		size++;
 		return count;
 	}
-	
+
+	/**
+	 * add
+	 * @param element element
+	 */
 	public void add(AdjustCount<E> element) {
 		if (index.containsKey(element.getContainer())) {
 			return;
@@ -71,7 +83,11 @@ public class AutoAdjustQueue<E> {
 			checkSum();
 		}
 	}
-	
+
+	/**
+	 * remove
+	 * @param element element
+	 */
 	public void remove(AdjustCount<E> element) {
 		Node node = index.remove(element.getContainer());
 		if (node != null)  {
@@ -92,14 +108,22 @@ public class AutoAdjustQueue<E> {
 			checkSum();
 		}
 	}
-	
+
+	/**
+	 * peekHead
+	 * @return head
+	 */
 	public E peekHead() {
 		if (head != null) {
 			return head.count.getContainer();
 		}
 		return null;
 	}
-	
+
+	/**
+	 * peekHeadRandomly
+	 * @return element
+	 */
 	public E peekHeadRandomly() {
 		if (head != null) {
 			int headCount = head.count.get();
@@ -128,14 +152,23 @@ public class AutoAdjustQueue<E> {
 		}
 		return null;
 	}
-	
+
+	/**
+	 * peekTail
+	 * @return element
+	 */
 	public E peekTail() {
 		if (tail != null) {
 			return tail.count.getContainer();
 		}
 		return null;
 	}
-	
+
+	/**
+	 * peekHeadExcludeRandomly
+	 * @param excludes excludes
+	 * @return element
+	 */
 	public E peekHeadExcludeRandomly(Set<E> excludes) {
 		if (excludes == null || excludes.isEmpty()) {
 			return peekHeadRandomly();
@@ -164,7 +197,12 @@ public class AutoAdjustQueue<E> {
 		}
 		return null;
 	}
-	
+
+	/**
+	 * peekHeadExclude
+	 * @param excludes excludes
+	 * @return element
+	 */
 	public E peekHeadExclude(Set<E> excludes) {
 		if (excludes == null || excludes.isEmpty()) {
 			return peekHead();
@@ -181,7 +219,12 @@ public class AutoAdjustQueue<E> {
 		}
 		return null;
 	}
-	
+
+	/**
+	 * peekTailExclude
+	 * @param excludes excludes
+	 * @return element
+	 */
 	public E peekTailExclude(Set<E> excludes) {
 		if (excludes == null || excludes.isEmpty()) {
 			return peekTail();
@@ -198,22 +241,38 @@ public class AutoAdjustQueue<E> {
 		}
 		return null;
 	}
-	
+
+	/**
+	 * check isCountBalanced
+	 * @return true/false
+	 */
 	public boolean isCountBalanced() {
 		if (head == null || tail == null || size <= 1) {
 			return true;
 		}
 		return head.count.get() >= (tail.count.get() - 1);
 	}
-	
+
+	/**
+	 * get size
+	 * @return size
+	 */
 	public int getSize() {
 		return size;
 	}
-	
+
+	/**
+	 * getCountSum
+	 * @return countSum
+	 */
 	public int getCountSum() {
 		return countSum;
 	}
-	
+
+	/**
+	 * incAndAdjust
+	 * @param element element
+	 */
 	public void incAndAdjust(AdjustCount<E> element) {
 		element.inc();
 		if (adjust(element)) {
@@ -221,7 +280,11 @@ public class AutoAdjustQueue<E> {
 		}
 		checkSum();
 	}
-	
+
+	/**
+	 * decAndAdjust
+	 * @param element element
+	 */
 	public void decAndAdjust(AdjustCount<E> element) {
 		element.dec();
 		if (adjust(element)) {
