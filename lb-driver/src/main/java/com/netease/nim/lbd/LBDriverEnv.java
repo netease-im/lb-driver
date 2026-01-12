@@ -4,12 +4,16 @@ import java.sql.Driver;
 import java.sql.DriverManager;
 
 /**
+ * LBDriverEnv
  * Created by caojiajun on 2025/12/3
  */
 public class LBDriverEnv {
 
     private static Driver realDriver;
 
+    /**
+     * init method
+     */
     public static void init() {
         try {
             DriverManager.registerDriver(new LBDriver());
@@ -19,6 +23,10 @@ public class LBDriverEnv {
         }
     }
 
+    /**
+     * getRealDriver
+     * @return Driver
+     */
     public static Driver getRealDriver() {
         return realDriver;
     }

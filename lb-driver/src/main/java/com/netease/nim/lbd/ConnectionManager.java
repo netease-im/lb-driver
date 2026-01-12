@@ -22,6 +22,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
+ * ConnectionManager
  * Created by caojiajun on 2025/12/3
  */
 public class ConnectionManager {
@@ -47,6 +48,11 @@ public class ConnectionManager {
     private final AtomicBoolean healthCheckStatus = new AtomicBoolean(false);
     private final AtomicBoolean rebalanceStatus = new AtomicBoolean(false);
 
+    /**
+     * ConnectionManager
+     * @param lbDriverUrl lbDriverUrl
+     * @param sqlProxyProvider sqlProxyProvider
+     */
     public ConnectionManager(LBDriverUrl lbDriverUrl, SqlProxyProvider sqlProxyProvider) {
         this.lbDriverUrl = lbDriverUrl;
         this.sqlProxyProvider = sqlProxyProvider;

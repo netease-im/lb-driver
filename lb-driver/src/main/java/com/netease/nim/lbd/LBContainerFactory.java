@@ -15,10 +15,19 @@ public class LBContainerFactory {
     private LBContainerFactory() {
     }
 
+    /**
+     * get instance
+     * @return LBContainerFactory
+     */
     public static LBContainerFactory getInstance() {
         return instance;
     }
 
+    /**
+     * get LBContainer by lbDriverUrl
+     * @param lbDriverUrl lbDriverUrl
+     * @return LBContainer
+     */
     public LBContainer get(LBDriverUrl lbDriverUrl) {
         LBContainer lbContainer = map.get(lbDriverUrl.getUrl());
         if (lbContainer != null) {

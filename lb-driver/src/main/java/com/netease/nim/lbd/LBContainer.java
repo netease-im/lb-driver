@@ -25,6 +25,11 @@ public class LBContainer {
     private final LBDriverUrl lbDriverUrl;
     private final ConnectionManager connectionManager;
 
+    /**
+     * LBContainer
+     * @param lbDriverUrl lbDriverUrl
+     * @param sqlProxyProvider sqlProxyProvider
+     */
     public LBContainer(LBDriverUrl lbDriverUrl, SqlProxyProvider sqlProxyProvider) {
         this.lbDriverUrl = lbDriverUrl;
         this.connectionManager = new ConnectionManager(lbDriverUrl, sqlProxyProvider);

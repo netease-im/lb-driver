@@ -2,7 +2,10 @@ package com.netease.nim.lbd.util;
 
 import java.util.*;
 
-
+/**
+ * AutoAdjustQueue
+ * @param <E> element
+ */
 public class AutoAdjustQueue<E> {
 	
 	private final Map<E, Node> index = new HashMap<>();

@@ -7,5 +7,10 @@ import java.sql.SQLException;
  */
 public interface ExceptionSorter {
 
+    /**
+     * check if reconnect for exception
+     * @param e exception
+     * @return true/false
+     */
     boolean isExceptionFatal(SQLException e);
 }

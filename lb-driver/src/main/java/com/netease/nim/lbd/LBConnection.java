@@ -21,6 +21,12 @@ public class LBConnection implements Connection {
     private final LBDriverUrl lbDriverUrl;
     private String schemaName;
 
+    /**
+     * LBConnection
+     * @param connectionManager connectionManager
+     * @param lbDriverUrl lbDriverUrl
+     * @throws SQLException exception
+     */
     public LBConnection(ConnectionManager connectionManager, LBDriverUrl lbDriverUrl) throws SQLException {
         this.connectionManager = connectionManager;
         this.lbDriverUrl = lbDriverUrl;
@@ -28,22 +34,41 @@ public class LBConnection implements Connection {
         connectionManager.registerLogicalConnection();
     }
 
+    /**
+     * realConnection
+     * @return realConnection
+     */
     public RealConnection getRealConnection() {
         return realConnection;
     }
 
+    /**
+     * isTransactionBegun
+     * @return isTransactionBegun
+     */
     protected boolean isTransactionBegun() {
         return isTransactionBegun;
     }
 
+    /**
+     * isTransactionBegun
+     * @param isTransactionBegun isTransactionBegun
+     */
     protected void setTransactionBegun(boolean isTransactionBegun) {
         this.isTransactionBegun = isTransactionBegun;
     }
 
+    /**
+     * isInTransaction
+     * @return isInTransaction
+     */
     protected boolean isInTransaction() {
         return !isAutoCommit || isTransactionBegun;
     }
 
+    /**
+     * checkRecyclingConnection
+     */
     protected void checkRecyclingConnection() {
         if (realConnection != null && stmts.isEmpty() && !isInTransaction() && !realConnection.isClosed()) {
             connectionManager.returnConnection(realConnection);
@@ -51,6 +76,12 @@ public class LBConnection implements Connection {
         }
     }
 
+    /**
+     * errorWrapper
+     * @param error error
+     * @return wrappered exception
+     * @throws SQLException exception
+     */
     protected SQLException errorWrapper(Throwable error) throws SQLException {
         if (error instanceof SQLException) {
             SQLException sqlEx = (SQLException) error;
@@ -74,6 +105,10 @@ public class LBConnection implements Connection {
         return new SQLException("SQLException thrown by ", error);
     }
 
+    /**
+     * check is closed
+     * @throws SQLException exception
+     */
     public void checkClosed() throws SQLException {
         if (isClosed) {
             throw new SQLException("No operations allowed after connection closed.", "08003", 0);

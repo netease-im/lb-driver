@@ -8,12 +8,17 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 
 /**
+ * CloseUtils
  * Created by caojiajun on 2026/1/9
  */
 public class CloseUtils {
 
     private static final Logger logger = LoggerFactory.getLogger(CloseUtils.class);
 
+    /**
+     * close statement
+     * @param statement statement
+     */
     public static void close(Statement statement) {
         if (statement == null) {
             return;
@@ -25,6 +30,10 @@ public class CloseUtils {
         }
     }
 
+    /**
+     * ResultSet
+     * @param resultSet resultSet
+     */
     public static void close(ResultSet resultSet) {
         if (resultSet == null) {
             return;
@@ -36,6 +45,10 @@ public class CloseUtils {
         }
     }
 
+    /**
+     * close connection
+     * @param connection connection
+     */
     public static void close(RealConnection connection) {
         if (connection == null) {
             return;

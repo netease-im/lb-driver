@@ -1,5 +1,9 @@
 package com.netease.nim.lbd.util;
 
+/**
+ * AdjustCount
+ * @param <E> element
+ */
 public class AdjustCount<E> {
 
 	private final E container;

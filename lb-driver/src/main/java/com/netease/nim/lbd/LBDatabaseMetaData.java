@@ -6,7 +6,11 @@ import java.sql.*;
 public class LBDatabaseMetaData implements DatabaseMetaData {
 	
 	private final LBDriverUrl lbDriverUrl;
-	
+
+    /**
+     * LBDatabaseMetaData
+     * @param lbDriverUrl lbDriverUrl
+     */
     public LBDatabaseMetaData(LBDriverUrl lbDriverUrl) {
 		super();
 		this.lbDriverUrl = lbDriverUrl;
