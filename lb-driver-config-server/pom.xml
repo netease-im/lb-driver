@@ -12,6 +12,7 @@
 
 	<artifactId>lb-driver-config-server</artifactId>
 	<version>1.0.0</version>
+	<name>lb-driver-config-server</name>
 
 	<dependencyManagement>
 		<dependencies>

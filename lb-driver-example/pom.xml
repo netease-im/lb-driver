@@ -13,6 +13,8 @@
 	<artifactId>lb-driver-example</artifactId>
 	<version>1.0.0</version>
 
+	<name>lb-driver-example</name>
+
 	<dependencyManagement>
 		<dependencies>
 			<dependency>

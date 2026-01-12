@@ -13,6 +13,8 @@
 	<artifactId>lb-driver-druid</artifactId>
 	<version>1.0.0</version>
 
+	<name>lb-driver-druid</name>
+
 	<dependencies>
 		<dependency>
 			<groupId>com.alibaba</groupId>

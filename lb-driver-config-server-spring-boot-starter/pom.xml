@@ -13,6 +13,8 @@
 	<artifactId>lb-driver-config-server-spring-boot-starter</artifactId>
 	<version>1.0.0</version>
 
+	<name>lb-driver-config-server-spring-boot-starter</name>
+
 	<dependencyManagement>
 		<dependencies>
 			<dependency>

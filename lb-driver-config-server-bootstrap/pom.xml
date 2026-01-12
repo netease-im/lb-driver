@@ -13,6 +13,8 @@
 	<artifactId>lb-driver-config-server-bootstrap</artifactId>
 	<version>1.0.0</version>
 
+	<name>lb-driver-config-server-bootstrap</name>
+
 	<dependencies>
 		<dependency>
 			<groupId>com.netease.nim</groupId>
