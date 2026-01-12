@@ -27,7 +27,7 @@ Load-Balance-Driver, wrapper of mysql-jdbc-driver, suitable for use in databases
 <dependency>
     <groupId>com.netease.nim</groupId>
     <artifactId>lb-driver</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 ```
@@ -81,3 +81,7 @@ config-server的部署配置，参考：[config_server](doc/config_server.md)
 ## 示例代码
 
 参考：[example](lb-driver-example)
+
+## 更新日志
+
+参考：[更新日志](update.md)

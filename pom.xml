@@ -5,7 +5,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.netease.nim</groupId>
 	<artifactId>lb-driver-projects</artifactId>
-	<version>1.0.0-SNAPSHOT</version>
+	<version>1.0.0</version>
 	<name>
 		Load-Balance-Driver, wrapper of mysql-jdbc-driver, suitable for use in databases with proxy architecture, such as OceanBase, TiDB, etc.
 	</name>
