@@ -86,3 +86,12 @@ config-server的部署配置，参考：[config_server](doc/config_server.md)
 ## 更新日志
 
 参考：[更新日志](update.md)
+
+## 博客文章
+
+[网易开源 lb-driver：OceanBase OBProxy 驱动层负载均衡实践](https://open.oceanbase.com/blog/27234102304)
+
+## 友情链接
+
+[OceanBase](https://github.com/oceanbase/oceanbase)
+[TiDB](https://github.com/pingcap/tidb)
