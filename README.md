@@ -6,6 +6,8 @@ Load-Balance-Driver, wrapper of mysql-jdbc-driver, suitable for use in databases
 [![GitHub release](https://img.shields.io/github/release/netease-im/lb-driver.svg)](https://github.com/netease-im/lb-driver/releases)
 ![java_language](https://img.shields.io/badge/java--language-1.8%20%7C%2021-blue.svg)
 
+简体中文 | [English](README_EN.md)
+
 ## 简介
 
 * 参考了网易内部分库分表中间件DDB的LBDriver的代码，但是重写了代码，从而适配更一般的场景
