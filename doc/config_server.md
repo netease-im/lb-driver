@@ -128,10 +128,10 @@ server {
 }
 
 upstream xxx-lbd-config-server {
-    server 10.0.0.1:8080;
-    server 10.0.0.2:8080;
-    server 10.0.0.3:8080;
-    check interval=3000 rise=3 fall=3 timeout=3000 type=http default_down=true;
+    server 10.0.0.1:8080 max_fails=0;
+    server 10.0.0.2:8080 max_fails=0;
+    server 10.0.0.3:8080 max_fails=0;
+    check interval=3000 rise=3 fall=3 timeout=3000 type=http;
     check_http_send "GET /health/status HTTP/1.0\r\n\r\n";
     check_http_expect_alive http_2xx http_3xx;
     keepalive 64;
