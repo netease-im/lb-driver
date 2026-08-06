@@ -5,13 +5,13 @@
 	<parent>
 		<artifactId>lb-driver-projects</artifactId>
 		<groupId>com.netease.nim</groupId>
-		<version>1.0.0</version>
+		<version>1.0.1-SNAPSHOT</version>
 	</parent>
 
 	<modelVersion>4.0.0</modelVersion>
 
 	<artifactId>lb-driver-config-server-bootstrap</artifactId>
-	<version>1.0.0</version>
+	<version>1.0.1-SNAPSHOT</version>
 
 	<name>lb-driver-config-server-bootstrap</name>
 
@@ -19,7 +19,7 @@
 		<dependency>
 			<groupId>com.netease.nim</groupId>
 			<artifactId>lb-driver-config-server-spring-boot-starter</artifactId>
-			<version>1.0.0</version>
+			<version>1.0.1-SNAPSHOT</version>
 		</dependency>
     </dependencies>
 	<build>

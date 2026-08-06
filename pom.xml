@@ -5,7 +5,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.netease.nim</groupId>
 	<artifactId>lb-driver-projects</artifactId>
-	<version>1.0.0</version>
+	<version>1.0.1-SNAPSHOT</version>
 	<name>
 		lb-driver
 	</name>

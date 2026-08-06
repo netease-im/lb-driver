@@ -5,13 +5,13 @@
 	<parent>
 		<artifactId>lb-driver-projects</artifactId>
 		<groupId>com.netease.nim</groupId>
-		<version>1.0.0</version>
+		<version>1.0.1-SNAPSHOT</version>
 	</parent>
 
 	<modelVersion>4.0.0</modelVersion>
 
 	<artifactId>lb-driver-example</artifactId>
-	<version>1.0.0</version>
+	<version>1.0.1-SNAPSHOT</version>
 
 	<name>lb-driver-example</name>
 
@@ -31,7 +31,7 @@
 		<dependency>
 			<groupId>com.netease.nim</groupId>
 			<artifactId>lb-driver</artifactId>
-			<version>1.0.0</version>
+			<version>1.0.1-SNAPSHOT</version>
 		</dependency>
 
 		<dependency>
@@ -67,7 +67,7 @@
 		<dependency>
 			<groupId>com.netease.nim</groupId>
 			<artifactId>lb-driver-druid</artifactId>
-			<version>1.0.0</version>
+			<version>1.0.1-SNAPSHOT</version>
 		</dependency>
     </dependencies>
 	<build>
