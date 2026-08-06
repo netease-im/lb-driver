@@ -14,7 +14,7 @@ public class LBStatement implements Statement {
     }
 
     protected void checkOpen() throws SQLException {
-    	connection.checkClosed();
+        connection.checkStatus();
         if (closed) {
             throw new SQLException("lb statment is already closed.");
         }
