@@ -3,11 +3,15 @@ package com.netease.nim.lbd.config.server.controller;
 import com.alibaba.fastjson2.JSONObject;
 import com.netease.nim.lbd.config.server.conf.ConfigProperties;
 import com.netease.nim.lbd.config.server.exception.AppException;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 @RestController
 @ConditionalOnClass(ConfigProperties.class)
@@ -37,7 +41,8 @@ public class HealthController {
 
     @RequestMapping(value = "/online")
     @ResponseBody
-    public JSONObject online() throws Exception {
+    public JSONObject online(HttpServletRequest request) {
+        checkAllowed(request);
         if (HealthStatus.status == HealthStatus.OFFLINE) {
             throw new AppException(HttpStatus.INTERNAL_SERVER_ERROR.value());
         }
@@ -46,7 +51,8 @@ public class HealthController {
 
     @RequestMapping(value = "/offline")
     @ResponseBody
-    public JSONObject offline() throws Exception {
+    public JSONObject offline(HttpServletRequest request) {
+        checkAllowed(request);
         //并把status状态设置为OFFLINE，方便服务调用者通过健康检查及时发现下线节点，从而做到快速的上线下线
         HealthStatus.status = HealthStatus.OFFLINE;
         //应该反复多次调用offline接口，直到返回200，才能执行杀进程操作，以等待所有请求已经处理完毕
@@ -54,5 +60,20 @@ public class HealthController {
             throw new AppException(HttpStatus.INTERNAL_SERVER_ERROR.value());
         }
         return SUCCESS;
+    }
+
+    private void checkAllowed(HttpServletRequest request) {
+        String onlineOfflineLoopbackOnly = System.getProperty("configServerOnlineOfflineLoopbackOnly", "true");
+        if (onlineOfflineLoopbackOnly == null || onlineOfflineLoopbackOnly.equalsIgnoreCase("true")) {
+            boolean allow;
+            try {
+                allow = InetAddress.getByName(request.getRemoteAddr()).isLoopbackAddress();
+            } catch (UnknownHostException e) {
+                throw new AppException(HttpStatus.FORBIDDEN.value(), "not allowed");
+            }
+            if (!allow) {
+                throw new AppException(HttpStatus.FORBIDDEN.value(), "not allowed");
+            }
+        }
     }
 }
