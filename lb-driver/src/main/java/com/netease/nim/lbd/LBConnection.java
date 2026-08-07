@@ -1,5 +1,8 @@
 package com.netease.nim.lbd;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.Executor;
@@ -11,10 +14,11 @@ import java.util.concurrent.Executor;
  */
 public class LBConnection implements Connection {
 
+    private static final Logger logger = LoggerFactory.getLogger(LBConnection.class);
     private final ConnectionManager connectionManager;
     private final List<LBStatement> stmts = new ArrayList<>();
 
-    private RealConnection realConnection;
+    private volatile RealConnection realConnection;
     private volatile SQLException fatalException = null;
     private volatile boolean isBroken = false;
     private boolean isAutoCommit = true;
@@ -89,19 +93,23 @@ public class LBConnection implements Connection {
             SQLException sqlEx = (SQLException) error;
             if (realConnection != null) {
                 if (lbDriverUrl.getExceptionSorter().isExceptionFatal(sqlEx)) {
+                    isBroken = true;
+                    fatalException = sqlEx;
                     if (realConnection != null) {
                         realConnection.markUnhealthy();
                     }
                     if (isTransactionBegun()) {
                         setTransactionBegun(false);
                     }
-                    closeStatements();
+                    try {
+                        closeStatements();
+                    } catch (SQLException e) {
+                        logger.error("close statements error", e);
+                    }
                     if (realConnection != null) {
                         connectionManager.returnConnection(realConnection);
                         realConnection = null;
                     }
-                    isBroken = true;
-                    fatalException = sqlEx;
                 }
             }
             return sqlEx;
@@ -547,7 +555,23 @@ public class LBConnection implements Connection {
 
     @Override
     public boolean isValid(int timeout) throws SQLException {
-        return false;
+        if (isClosed) {
+            return false;
+        }
+        if (isBroken) {
+            return false;
+        }
+        if (realConnection == null) {
+            return true;
+        }
+        if (realConnection.isClosed() || !realConnection.isHealthy()) {
+            return false;
+        }
+        try {
+            return realConnection.getPhysicalConnection().isValid(timeout);
+        } catch (SQLException e) {
+            return false;
+        }
     }
 
     @Override
