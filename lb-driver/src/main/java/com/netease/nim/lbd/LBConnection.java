@@ -449,7 +449,11 @@ public class LBConnection implements Connection {
 
     @Override
     public boolean isClosed() throws SQLException {
-        return isClosed;
+        // A logically broken connection (after a fatal SQL error) is unusable and is
+        // rejected by checkStatus(); report it as closed so callers / pools observe a
+        // state consistent with the actual (unusable) connection. JDBC allows isClosed()
+        // to return true after fatal errors; this is not a liveness probe.
+        return isClosed || isBroken;
     }
 
     @Override
@@ -555,10 +559,7 @@ public class LBConnection implements Connection {
 
     @Override
     public boolean isValid(int timeout) throws SQLException {
-        if (isClosed) {
-            return false;
-        }
-        if (isBroken) {
+        if (isClosed()) {
             return false;
         }
         if (realConnection == null) {

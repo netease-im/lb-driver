@@ -72,7 +72,9 @@ fatal 之后，`LBConnection` 处于 `realConnection == null` 且 `isClosed == f
 
 ---
 
-## 4. 1.0.1 的修复（提交 `f0b451c`）
+## 4. 1.0.1 的修复
+
+核心修复来自提交 `f0b451c`：
 
 1. **新增 `isBroken` / `fatalException` 标记**，fatal 时在 `errorWrapper` 里置位。
 2. **新增 `checkStatus()`**：在 `checkClosed()` 基础上，若 `isBroken` 则抛 `SQLException("No operations allowed after connection broken by fatal error. error = ...", 原SQLState)`。
@@ -83,7 +85,12 @@ fatal 之后，`LBConnection` 处于 `realConnection == null` 且 `isClosed == f
    - 所有 `prepareStatement(...)` 重载
    - `LBStatement.checkOpen()`（即已创建的 Statement 上继续执行也会被拒）
 4. **重写 `close()`**：用 `try/finally` 保证 `unregisterLogicalConnection`、`realConnection=null`、`isClosed=true` 必定执行；清理失败时 `markUnhealthy`。
-5. **修复 `isValid()`**：1.0.0 里 `isValid()` 是恒返回 `false` 的 stub；1.0.1 改为 `已关闭/已损坏 → false`、`懒加载空闲态 → true`、`持有物理连接 → 委托 physical.isValid()`。这让用 `isValid` 校验的池子能正常工作并识别坏连接（详见第 6 节）。
+
+此外 1.0.1 还做了以下健壮化（`f0b451c` 之后追加）：
+
+5. **修复 `isValid()`**：1.0.0 里 `isValid()` 是恒返回 `false` 的 stub；1.0.1 改为正常实现，让用 `isValid` 校验的池子能识别坏连接（详见第 6 节）。
+6. **健壮化 fatal 处理路径（`errorWrapper`）**：先把逻辑连接标记为损坏（`isBroken`/`fatalException`）再释放物理连接，关闭并发 `isValid()` 的短暂误判窗口；`realConnection` 改为 `volatile`；`closeStatements()` 的异常被 catch 并记日志，不再掩盖原始 fatal 异常。
+7. **`isClosed()` 返回 closed 或 broken**：1.0.0 的 `isClosed()` 只反映是否调过 `close()`，fatal 后（`isBroken`）仍返回 false，与连接实际不可用的状态不一致；1.0.1 改为 `isClosed || isBroken`，让外部调用者/连接池能据此识别坏连接，与 `checkStatus()`/`isValid()` 保持一致。
 
 > ⚠️ 精确说明：`rollback()` 在 1.0.1 中**仍走 `checkClosed()`，仍是 no-op**。这是有意为之且可接受——rollback-after-fatal 在语义上是无害的（DB 侧事务已随连接断开回滚，应用"以为回滚成功"与实际一致）。**真正必须修复的是 `commit()` 的静默 no-op**，1.0.1 已经修掉。
 
@@ -116,23 +123,25 @@ fatal 发生后，原始异常会继续往上抛到连接池。**连接池自己
 
 **历史问题**：1.0.0 里 `isValid()` 是未实现的 stub，**恒返回 `false`**，导致任何用 `isValid` 校验的池子（HikariCP 借出、DBCP `testOnBorrow`、tomcat-jdbc `testOnBorrow`/`testWhileIdle`、c3p0）会把**每一条** LBConnection 都判成无效，连接池根本无法正常工作。
 
-**1.0.1 已修复**（与 checkStatus 修复同期），现在 `isValid()` 的判定逻辑（`LBConnection.java:549`）：
+**1.0.1 已修复**，现在 `isValid()` 的判定逻辑：
 
 ```java
 public boolean isValid(int timeout) throws SQLException {
-    if (isClosed) return false;                       // ① 已关闭 → 无效
-    if (isBroken) return false;                       // ② ★ fatal 过 → 无效（关键：让池子能识别坏连接）
-    if (realConnection == null) return true;          // ③ 懒加载未获取 / 空闲已回收 → 有效
-    return realConnection.getPhysicalConnection().isValid(timeout);  // ④ 持有物理连接 → 委托实测
+    if (isClosed()) return false;                                          // ① 已关闭或 fatal 损坏 → 无效（isClosed() = isClosed || isBroken）
+    if (realConnection == null) return true;                               // ② 懒加载未获取 / 空闲已回收 → 有效
+    if (realConnection.isClosed() || !realConnection.isHealthy()) return false;  // ③ 物理已关 / 不健康 → 无效
+    try { return realConnection.getPhysicalConnection().isValid(timeout); }      // ④ 委托实测（MySQL 下即 COM_PING）
+    catch (SQLException e) { return false; }
 }
 ```
 
 含义与影响：
 
-- **坏连接（fatal 过）现在返回 false** → 用 `isValid` 校验的池子能在借出/校验时识别并淘汰坏连接。这是 1.0.1 相对 1.0.0 的又一重要改进。
+- **坏连接（fatal 过，或物理已关 / 不健康）返回 false** → 用 `isValid` 校验的池子能在借出/校验时识别并淘汰坏连接。这是 1.0.1 相对 1.0.0 的又一重要改进。
 - **`realConnection == null` 时返回 true**：这是"懒加载未获取物理连接"或"空闲态已归还物理连接"的状态。返回 true 是合理的——下一次真实操作会通过 `initCurrentConnection()` 现取一条新的物理连接。**副作用**：这种状态下 `isValid` 不会真正探测后端，真正的连通性验证延后到首次使用时发生（连不上即 fail-fast）。
-- **持有物理连接时**委托给 `physical.isValid()`（MySQL driver 下即 COM_PING，很轻）。
+- **持有物理连接时**先用 `realConnection.isClosed()`/`isHealthy()` 快速短路，再委托 `physical.isValid()`（MySQL driver 下即 COM_PING，很轻）；委托抛异常时返回 false。
 - 这对 DB 重启场景反而是**好事**：被回收的空闲连接（`realConnection == null`）不持有死物理连接，`isValid` 返回 true，借出后首次操作现取新物理连接 → 自愈；而持有死物理连接的连接，`isValid` 委托实测返回 false → 被淘汰。
+- 与之配套，`isClosed()` 在 fatal 后也返回 true（见第 4 节第 7 条），所以**依赖 `isClosed()` 判活的池子/应用**也能识别坏连接。
 
 > **结论：1.0.1 之后，连接池可以用 `isValid` 做校验了**（不再强制要求 `validationQuery`）。`validationQuery` 仍是可选的——当你想用指定 SQL 而非 driver 的 `isValid`/COM_PING 时才需要配。
 > Druid 对 MySQL 默认用 `PingConnectionChecker`（COM_PING），不经过 `isValid()`，行为不受影响。
