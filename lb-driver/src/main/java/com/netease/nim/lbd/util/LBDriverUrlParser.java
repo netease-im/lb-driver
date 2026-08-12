@@ -133,15 +133,19 @@ public class LBDriverUrlParser {
 
         if (type == LBDriverType.remote) {
             String[] split1 = addrs.split(":");
-            if (split1.length != 2) {
+            if (split1.length == 0 || split1.length > 2) {
                 throw new SQLException("config server parse error, url = " + url);
             }
             String configServerHost = split1[0];
             int configServerPort;
-            try {
-                configServerPort = Integer.parseInt(split1[1]);
-            } catch (Exception e) {
-                throw new SQLException("config server port parse error, url = " + url);
+            if (split1.length == 1) {
+                configServerPort = 80;
+            } else {
+                try {
+                    configServerPort = Integer.parseInt(split1[1]);
+                } catch (Exception e) {
+                    throw new SQLException("config server port parse error, url = " + url);
+                }
             }
             builder.setConfigServerHost(configServerHost);
             builder.setConfigServerPort(configServerPort);

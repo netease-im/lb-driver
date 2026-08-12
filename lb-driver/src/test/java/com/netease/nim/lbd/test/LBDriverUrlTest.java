@@ -55,4 +55,15 @@ public class LBDriverUrlTest {
         Assert.assertEquals(4, lbDriverUrl.getCheckHealthIntervalSeconds());
         Assert.assertEquals(6000, lbDriverUrl.getConfigServerTimeout());
     }
+
+    @Test
+    public void test4() throws SQLException {
+        String url = "jdbc:mysql:lb:remote://config-server.xxx.com/mydatabase?connectTimeout=5000&socketTimeout=60000";
+        LBDriverUrl lbDriverUrl = LBDriverUrlParser.parseUrl(url, new Properties());
+        Assert.assertNotNull(lbDriverUrl);
+        Assert.assertEquals("mydatabase", lbDriverUrl.getSchemaName());
+        Assert.assertEquals("config-server.xxx.com", lbDriverUrl.getConfigServerHost());
+        Assert.assertEquals(80, lbDriverUrl.getConfigServerPort());
+        Assert.assertEquals(2, lbDriverUrl.getInfo().size());
+    }
 }
