@@ -63,7 +63,7 @@ Connection URL example:
 jdbc:mysql:lb:remote://config-server.xxx.com:8080/mydatabase?connectTimeout=5000&socketTimeout=10000&configServerApiKey=xxx&configServerSchema=im_user&logStats=true
 ```
 
-* `config-server.xxx.com:8080` is the config-server address. It must use the host:port format. Port 443 uses HTTPS; all other ports use HTTP. Required.
+* `config-server.xxx.com:8080` is the config-server address. It must use the host:port format. If the port is omitted, it defaults to 80. Port 443 uses HTTPS; all other ports use HTTP. Required.
 * `configServerApiKey` is the authentication key for config-server. Optional, depending on whether config-server authentication is enabled.
 * `configServerSchema` is the schema configured in config-server. Required.
 * `configServerTimeout` specifies the timeout for accessing config-server, in milliseconds. Optional. The default is 5000.
