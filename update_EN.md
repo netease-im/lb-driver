@@ -1,5 +1,8 @@
 
 # 1.0.1 (2026/08/xx)
+### Added
+* Default the config-server port to 80 when it is omitted from the remote URL
+
 ### Fixed
 * Fixed logical connections allowing subsequent operations after fatal SQL exceptions on the underlying physical connection
 * Fixed connection close cleanup to always unregister logical connections and prevent unhealthy physical connections from returning to the pool
