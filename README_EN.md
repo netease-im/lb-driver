@@ -30,7 +30,7 @@ English | [简体中文](README.md)
 <dependency>
     <groupId>com.netease.nim</groupId>
     <artifactId>lb-driver</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 ```

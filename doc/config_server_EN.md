@@ -6,7 +6,7 @@
 
 ### Config-Server Deployment
 
-* Download the JAR package from [lb-driver-config-server-bootstrap-1.0.0.jar](https://github.com/netease-im/lb-driver/releases/download/v1.0.0/lb-driver-config-server-bootstrap-1.0.0.jar), or build `lb-driver-config-server-bootstrap` yourself.
+* Download the JAR package from [lb-driver-config-server-bootstrap-1.0.1.jar](https://github.com/netease-im/lb-driver/releases/download/v1.0.1/lb-driver-config-server-bootstrap-1.0.1.jar), or build `lb-driver-config-server-bootstrap` yourself.
 * Refer to [application.yml](../lb-driver-config-server-bootstrap/src/main/resources/application.yml) and modify it into your own `application.yml`.
 * Refer to [logback-example.xml](../lb-driver-config-server-bootstrap/src/main/resources/logback-example.xml) and modify it into your own `logback.xml`.
 * Refer to [startup.sh](startup.sh) and modify `java_home`, the JAR path, the application path, the `logback.xml` path, and other settings, then start the service.

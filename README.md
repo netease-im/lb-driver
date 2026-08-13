@@ -30,7 +30,7 @@ Load-Balance-Driver, wrapper of mysql-jdbc-driver, suitable for use in databases
 <dependency>
     <groupId>com.netease.nim</groupId>
     <artifactId>lb-driver</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 ```

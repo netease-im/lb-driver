@@ -1,5 +1,5 @@
 
-# 1.0.1 (2026/08/xx)
+# 1.0.1 (2026/08/13)
 ### Added
 * Default the config-server port to 80 when it is omitted from the remote URL
 
