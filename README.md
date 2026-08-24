@@ -1,5 +1,7 @@
 # lb-driver
 
+<img src="/doc/logo.png" width = "300"/>
+
 Load-Balance-Driver, wrapper of mysql-jdbc-driver, suitable for use in databases with proxy architecture, such as OceanBase, TiDB, etc.
 
 ![GitHub](https://img.shields.io/badge/license-MIT-blue.svg)
