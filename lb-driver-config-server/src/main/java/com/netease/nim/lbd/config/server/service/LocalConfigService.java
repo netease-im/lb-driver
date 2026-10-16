@@ -2,13 +2,16 @@ package com.netease.nim.lbd.config.server.service;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.netease.nim.lbd.config.server.model.AzDefinition;
 import com.netease.nim.lbd.config.server.model.SchemaConfig;
 import com.netease.nim.lbd.config.server.utils.ConfigUtils;
 import com.netease.nim.lbd.config.server.utils.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -21,10 +24,12 @@ public class LocalConfigService implements ConfigService {
 
     private Map<String, String> initConfig;
     private Map<String, SchemaConfig> schemaConfigMap = new ConcurrentHashMap<>();
+    private List<AzDefinition> globalAzList = new ArrayList<>();
 
     @Override
     public void init(Map<String, String> config) {
         this.initConfig = config;
+        this.globalAzList = ConfigUtils.parseGlobalAzList(config);
         boolean success = reload();
         if (!success) {
             throw new IllegalArgumentException("init fail");
@@ -58,7 +63,7 @@ public class LocalConfigService implements ConfigService {
             Map<String, SchemaConfig> schemaConfigMap = new ConcurrentHashMap<>();
             for (Object o : jsonArray) {
                 JSONObject json = (JSONObject) o;
-                SchemaConfig schemaConfig = ConfigUtils.parse(json.toString());
+                SchemaConfig schemaConfig = ConfigUtils.parse(json.toString(), globalAzList);
                 if (schemaConfigMap.containsKey(schemaConfig.getSchema())) {
                     throw new IllegalArgumentException("duplicate schema = " + schemaConfig.getSchema());
                 }

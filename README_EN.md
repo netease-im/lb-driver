@@ -75,6 +75,23 @@ jdbc:mysql:lb:remote://config-server.xxx.com:8080/mydatabase?connectTimeout=5000
 * `unsupportedMethodBehavior` specifies the behavior when an unsupported method is called: `throwException` or `ignoreCall`. Optional. The default is `throwException`.
 * `exceptionSorter` specifies which exceptions require connection recreation. Configure the fully qualified class name of a class that implements the `ExceptionSorter` interface. The default is `com.netease.nim.lbd.MySqlExceptionSorter`.
 
+* `az` specifies the availability zone of the local machine. Optional. The value is an operation-defined zone name; the driver neither validates nor hardcodes it. It can also be overridden with `-Dlbd.az=xxx`, which takes precedence over the URL parameter (one URL is often shared by a batch of machines, so only `-D` can override it per machine).
+* `ip` specifies the local machine IP. Optional. It is used by config-server to resolve the availability zone and is reported by default: an explicitly configured `ip` wins, otherwise the driver resolves it once from the local address of the socket connected to config-server and caches the result. If resolution fails, the parameter is not sent for that request, config-server falls back to the request source IP, and the driver retries after backing off for `azRefreshIntervalSeconds` (each retry really connects to config-server, so retrying at every refresh would stall the refresh thread). `ip` is reported even when `az` is not configured, which is the normal auto-detection case.
+* `-Dlbd.ip=xxx` takes precedence over the `ip` in the URL, so it can be overridden per machine. An empty value for `-Dlbd.az` / `-Dlbd.ip` (e.g. `-Dlbd.az=`) means "not configured", which is handy to clear a value of a URL shared by many machines.
+* `azRefreshIntervalSeconds` specifies the interval of refreshing the local-zone sql-proxy list while degraded. Optional. The default is 30s.
+* `recoverCheckCount` specifies how many consecutive successful health checks are required for a node to flip back to reachable. Optional. The default is 2.
+
+#### Multi-AZ awareness
+
+* The normal usage relies on auto-detection only: leave `az` unset, the driver reports the local IP, and config-server derives the zone from the network segment. `az` is an explicit override for cases where auto-detection does not apply or is inaccurate.
+* The driver always reports the local `ip` to config-server, passes `az` as well when it is configured, and always carries the client feature level `clientFeatureLevel` (currently `2`) together with `clientVersion` (for config-server log observation only).
+* When config-server enables `proxy.policy=az`, it returns the sql-proxy list of the client availability zone. If the policy is not enabled, no zone is matched, or the client feature level is insufficient, the default (full) list is returned.
+* If the whole local-zone list becomes unreachable, the driver immediately requests the default list once with `policy=default` on the refresh thread (so the triggering business thread is never blocked), uses it for new connections, and logs the degraded state. Once a local-zone node passes `recoverCheckCount` consecutive health checks, the driver switches back automatically (while the default list has not been obtained yet this is capped at 2 checks, so flapping cannot repeatedly fire fallback pulls).
+* The driver only maintains the set it currently needs: the local-zone list alone when healthy, and the default list plus the local-zone list while degraded. The local-zone nodes stay in the pool and keep being probed (recovery is decided from them) but take no part in load balancing. After switching back, the default list is detached from the pool and added back on demand at the next failure (re-probing and re-connecting).
+* While degraded, the default list is refreshed every 5s and the local-zone list every `azRefreshIntervalSeconds`; the two request variants maintain independent `md5` values.
+* This feature only affects which sql-proxy nodes are used. Connection balance, connection pool and health check semantics are unchanged. Behavior is identical to before when `az` is not configured.
+* An older driver (without the feature level) still receives the default list even if config-server enables AZ affinity, so it never silently loses cross-zone fallback.
+
 For config-server deployment configuration, see [config_server](doc/config_server_EN.md).
 
 

@@ -26,6 +26,11 @@ public class LBDriverUrl {
     private String configServerSchema;
     private String configServerApiKey;
 
+    private String az;
+    private String ip;
+    private int azRefreshIntervalSeconds = Constants.AZ_REFRESH_INTERVAL_SECONDS;
+    private int recoverCheckCount = Constants.RECOVER_CHECK_COUNT;
+
     private String schemaName;
     private Properties info;
 
@@ -98,6 +103,38 @@ public class LBDriverUrl {
      */
     public String getSchemaName() {
         return schemaName;
+    }
+
+    /**
+     * getAz
+     * @return az
+     */
+    public String getAz() {
+        return az;
+    }
+
+    /**
+     * getIp
+     * @return ip
+     */
+    public String getIp() {
+        return ip;
+    }
+
+    /**
+     * getAzRefreshIntervalSeconds
+     * @return azRefreshIntervalSeconds
+     */
+    public int getAzRefreshIntervalSeconds() {
+        return azRefreshIntervalSeconds;
+    }
+
+    /**
+     * getRecoverCheckCount
+     * @return recoverCheckCount
+     */
+    public int getRecoverCheckCount() {
+        return recoverCheckCount;
     }
 
     /**
@@ -207,6 +244,38 @@ public class LBDriverUrl {
          */
         public void setConfigServerApiKey(String configServerApiKey) {
             lbDriverUrl.configServerApiKey = configServerApiKey;
+        }
+
+        /**
+         * setAz
+         * @param az az
+         */
+        public void setAz(String az) {
+            lbDriverUrl.az = az;
+        }
+
+        /**
+         * setIp
+         * @param ip ip
+         */
+        public void setIp(String ip) {
+            lbDriverUrl.ip = ip;
+        }
+
+        /**
+         * azRefreshIntervalSeconds
+         * @param azRefreshIntervalSeconds azRefreshIntervalSeconds
+         */
+        public void azRefreshIntervalSeconds(int azRefreshIntervalSeconds) {
+            lbDriverUrl.azRefreshIntervalSeconds = azRefreshIntervalSeconds;
+        }
+
+        /**
+         * recoverCheckCount
+         * @param recoverCheckCount recoverCheckCount
+         */
+        public void recoverCheckCount(int recoverCheckCount) {
+            lbDriverUrl.recoverCheckCount = recoverCheckCount;
         }
 
         /**

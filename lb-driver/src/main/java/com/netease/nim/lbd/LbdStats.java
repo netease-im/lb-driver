@@ -24,6 +24,7 @@ public class LbdStats {
         private SqlProxy sqlProxy;
         private boolean online;
         private boolean reachable;
+        private boolean usable;
         private int using;
         private int idle;
         private long create;
@@ -52,6 +53,14 @@ public class LbdStats {
 
         public void setReachable(boolean reachable) {
             this.reachable = reachable;
+        }
+
+        public boolean isUsable() {
+            return usable;
+        }
+
+        public void setUsable(boolean usable) {
+            this.usable = usable;
         }
 
         public int getUsing() {

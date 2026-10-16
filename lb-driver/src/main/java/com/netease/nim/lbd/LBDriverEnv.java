@@ -9,7 +9,8 @@ import java.sql.DriverManager;
  */
 public class LBDriverEnv {
 
-    private static Driver realDriver;
+    //for test
+    static Driver realDriver;
 
     /**
      * init method

@@ -1,7 +1,7 @@
 package com.netease.nim.lbd.config.server.service;
 
-import com.alibaba.fastjson2.JSONObject;
 import com.googlecode.concurrentlinkedhashmap.ConcurrentLinkedHashMap;
+import com.netease.nim.lbd.config.server.model.AzDefinition;
 import com.netease.nim.lbd.config.server.model.SchemaConfig;
 import com.netease.nim.lbd.config.server.utils.ConfigUtils;
 import com.netease.nim.lbd.config.server.utils.NamedThreadFactory;
@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,7 @@ public class EtcdConfigService implements ConfigService {
 
     private String configKeyPrefix;
     private Client client;
+    private List<AzDefinition> globalAzList = new ArrayList<>();
 
     private final ReentrantLock lock = new ReentrantLock();
 
@@ -43,6 +45,7 @@ public class EtcdConfigService implements ConfigService {
     public void init(Map<String, String> config) {
         String etcdServer = null;
         try {
+            this.globalAzList = ConfigUtils.parseGlobalAzList(config);
             // Get etcd config by prefix.
             String target = config.get("etcd.target");
             Client client;
@@ -204,7 +207,7 @@ public class EtcdConfigService implements ConfigService {
             if (value == null || value.getValue() == null || value.getValue().toString().isEmpty()) {
                 return;
             }
-            SchemaConfig schemaConfig = ConfigUtils.parse(value.getValue().toString());
+            SchemaConfig schemaConfig = ConfigUtils.parse(value.getValue().toString(), globalAzList);
             if (!Objects.equals(schemaConfig.getSchema(), schema)) {
                 throw new IllegalArgumentException("illegal schema config, schema = " + schema);
             }

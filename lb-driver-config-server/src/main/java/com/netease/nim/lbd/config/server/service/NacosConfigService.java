@@ -1,9 +1,9 @@
 package com.netease.nim.lbd.config.server.service;
 
-import com.alibaba.fastjson2.JSONObject;
 import com.alibaba.nacos.api.NacosFactory;
 import com.alibaba.nacos.api.config.listener.Listener;
 import com.googlecode.concurrentlinkedhashmap.ConcurrentLinkedHashMap;
+import com.netease.nim.lbd.config.server.model.AzDefinition;
 import com.netease.nim.lbd.config.server.model.SchemaConfig;
 import com.netease.nim.lbd.config.server.utils.ConfigUtils;
 import com.netease.nim.lbd.config.server.utils.NamedThreadFactory;
@@ -33,12 +33,14 @@ public class NacosConfigService implements ConfigService {
 
     private String group;
     private long timeoutMs;
+    private List<AzDefinition> globalAzList = new ArrayList<>();
     private com.alibaba.nacos.api.config.ConfigService configService;
 
     @Override
     public void init(Map<String, String> config) {
         Properties nacosProps = new Properties();
         try {
+            this.globalAzList = ConfigUtils.parseGlobalAzList(config);
             // Get nacos config by prefix.
             String prefix = "nacos.";
             for (Map.Entry<String, String> entry : config.entrySet()) {
@@ -162,7 +164,7 @@ public class NacosConfigService implements ConfigService {
             if (config == null) {
                 return;
             }
-            SchemaConfig schemaConfig = ConfigUtils.parse(config);
+            SchemaConfig schemaConfig = ConfigUtils.parse(config, globalAzList);
             if (!Objects.equals(schemaConfig.getSchema(), schema)) {
                 throw new IllegalArgumentException("illegal schema config, schema = " + schema);
             }

@@ -5,13 +5,14 @@ import com.netease.nim.lbd.config.server.conf.ConfigProperties;
 import com.netease.nim.lbd.config.server.conf.ConfigType;
 import com.netease.nim.lbd.config.server.conf.LogBean;
 import com.netease.nim.lbd.config.server.exception.AppException;
+import com.netease.nim.lbd.config.server.model.ClientFeatureLevel;
 import com.netease.nim.lbd.config.server.model.SchemaConfig;
 import com.netease.nim.lbd.config.server.service.ConfigService;
 import com.netease.nim.lbd.config.server.service.EtcdConfigService;
 import com.netease.nim.lbd.config.server.service.LocalConfigService;
 import com.netease.nim.lbd.config.server.service.NacosConfigService;
+import com.netease.nim.lbd.config.server.service.SqlProxyListResolver;
 import com.netease.nim.lbd.config.server.utils.ConfigUtils;
-import com.netease.nim.lbd.config.server.utils.MD5Util;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,12 +22,17 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 public class ConfigApiController implements InitializingBean {
 
     private static final String Authorization = "Authorization";
+
+    private static final String BEARER_PREFIX = "Bearer ";
+
+    private static final String X_FORWARDED_FOR = "X-Forwarded-For";
+    private static final String X_REAL_IP = "X-Real-IP";
+    private static final String X_FROM_IP = "X-From-IP";
 
     private static final JSONObject not_modify = new JSONObject();
     private static final JSONObject not_found = new JSONObject();
@@ -44,47 +50,80 @@ public class ConfigApiController implements InitializingBean {
 
     private ConfigService configService;
 
-    private final ConcurrentHashMap<String, String> md5CacheMap = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Long> md5CacheUpdateTimeMap = new ConcurrentHashMap<>();
-
     @GetMapping("/fetch_sql_proxy_list")
     public JSONObject fetchSqlProxyList(HttpServletRequest request,
                                         @RequestParam(value = "schema") String schema,
-                                        @RequestParam(value = "md5", required = false) String md5) {
-        LogBean.get().addProps("md5", md5);
-        LogBean.get().addProps("schema", schema);
+                                        @RequestParam(value = "md5", required = false) String md5,
+                                        @RequestParam(value = "az", required = false) String az,
+                                        @RequestParam(value = "ip", required = false) String ip,
+                                        @RequestParam(value = "policy", required = false) String policy,
+                                        @RequestParam(value = "clientFeatureLevel", required = false) String clientFeatureLevel,
+                                        @RequestParam(value = "clientVersion", required = false) String clientVersion) {
+        LogBean log = LogBean.get();
+        log.addProps("md5", md5);
+        log.addProps("schema", schema);
+        log.addProps("az", az);
+        log.addProps("ip", ip);
+        log.addProps("policy.request", policy);
+        log.addProps("clientVersion", clientVersion);
+        int featureLevel = SqlProxyListResolver.parseClientFeatureLevel(clientFeatureLevel);
+        log.addProps("clientFeatureLevel", featureLevel);
+        log.addProps("clientFeatureLevel.display", ClientFeatureLevel.displayNameOf(featureLevel));
         SchemaConfig schemaConfig = configService.getSchemaConfig(schema);
         if (schemaConfig == null) {
-            LogBean.get().addProps("result", not_found);
+            log.addProps("result", not_found);
             return not_found;
         }
         //
         auth(request, schemaConfig);
         //
-        String md5Cache = md5CacheMap.get(schema);
-        Long md5CacheUpdateTime = md5CacheUpdateTimeMap.get(schema);
-        if (md5 != null && md5Cache != null && md5CacheUpdateTime != null && Objects.equals(md5, md5Cache)
-                && System.currentTimeMillis() - md5CacheUpdateTime < 1000) {
-            LogBean.get().addProps("result", not_modify);
-            LogBean.get().addProps("md5.cache", true);
-            return not_modify;
-        }
+        SqlProxyListResolver.Result result = SqlProxyListResolver.resolve(schemaConfig, policy, az, ip,
+                clientIps(request), featureLevel);
+        log.addProps("policy.applied", result.getPolicy().getValue());
+        log.addProps("az.applied", result.getAz());
         //
-        List<String> sqlProxyLists = new ArrayList<>(schemaConfig.getProxyList());
-        Collections.sort(sqlProxyLists);
-        String newMd5 = MD5Util.md5(JSONObject.toJSONString(sqlProxyLists));
-        md5CacheMap.put(schema, newMd5);
-        md5CacheUpdateTimeMap.put(schema, System.currentTimeMillis());
+        List<String> sqlProxyLists = result.getProxyList();
+        //摘要必须把 policy（与命中的可用区）一起算进去，否则策略变化而集合未变时客户端会因 304 拿到过期的策略认知；
+        //只与本次算出的摘要比对，不拿「最近一次下发的摘要」代替：配置刚变更时后者会给出过期的 304
+        //（代价只是每个请求多算一次小 JSON 的 md5，这个接口是 5s~30s 级轮询，不在热路径上）
+        String newMd5 = result.digest();
         if (Objects.equals(md5, newMd5)) {
-            LogBean.get().addProps("result", not_modify);
+            log.addProps("result", not_modify);
+            log.addProps("md5.cache", true);
             return not_modify;
         }
         JSONObject json = new JSONObject();
         json.put("code", 200);
         json.put("md5", newMd5);
         json.put("data", sqlProxyLists);
-        LogBean.get().addProps("result", json);
+        json.put("policy", result.getPolicy().getValue());
+        log.addProps("result", json);
         return json;
+    }
+
+    //请求来源 ip 的候选顺序：X-From-IP → X-Real-IP → X-Forwarded-For 首值 → RemoteAddr
+    //前两个由接入层覆盖写入、客户端无法伪造，优先采信；X-Forwarded-For 是调用方可自由构造的
+    //本方法只用于推断可用区（性能优化），不作为鉴权或安全边界，授权一律由 apiKey 把关
+    private List<String> clientIps(HttpServletRequest request) {
+        List<String> list = new ArrayList<>();
+        addIfNotEmpty(list, request.getHeader(X_FROM_IP));
+        addIfNotEmpty(list, request.getHeader(X_REAL_IP));
+        String forwardedFor = request.getHeader(X_FORWARDED_FOR);
+        if (forwardedFor != null && !forwardedFor.trim().isEmpty()) {
+            //取首值即最靠近客户端的地址
+            String first = forwardedFor.split(",")[0].trim();
+            if (!first.isEmpty()) {
+                list.add(first);
+            }
+        }
+        addIfNotEmpty(list, request.getRemoteAddr());
+        return list;
+    }
+
+    private void addIfNotEmpty(List<String> list, String value) {
+        if (value != null && !value.trim().isEmpty()) {
+            list.add(value.trim());
+        }
     }
 
     @RequestMapping("/reload")
@@ -113,7 +152,13 @@ public class ConfigApiController implements InitializingBean {
             LogBean.get().addProps("Authorization.missing", true);
             throw new AppException(403, "missing api key");
         }
-        String apiKey = authorization.substring("Bearer ".length());
+        //header 由调用方任意构造：不是 Bearer 前缀时直接按鉴权失败处理，
+        //不能让 substring 抛越界异常变成 500（500 会被当成服务端故障触发告警）
+        if (!authorization.startsWith(BEARER_PREFIX)) {
+            LogBean.get().addProps("Authorization.fail", true);
+            throw new AppException(403, "illegal authorization header");
+        }
+        String apiKey = authorization.substring(BEARER_PREFIX.length());
         if (!schemaConfig.getApiKeys().contains(apiKey)) {
             LogBean.get().addProps("Authorization.fail", true);
             throw new AppException(403, "illegal api key");

@@ -74,17 +74,6 @@ public class ConnectionManager {
         } finally {
             lock.unlock();
         }
-        checkReachable();
-        int reachableCount = 0;
-        for (Map.Entry<SqlProxy, SqlProxyConnectionPool> entry : poolMap.entrySet()) {
-            boolean reachable = entry.getValue().isReachable();
-            if (reachable) {
-                reachableCount ++;
-            }
-        }
-        if (reachableCount <= 0) {
-            throw new IllegalArgumentException("There is no reachable sql proxy");
-        }
         sqlProxyProvider.addSqlProxyCallback(new SqlProxyCallback() {
             @Override
             public void add(List<SqlProxy> list) {
@@ -95,7 +84,19 @@ public class ConnectionManager {
             public void remove(List<SqlProxy> list) {
                 removeSqlProxy(list);
             }
+
+            @Override
+            public void setUsable(List<SqlProxy> list, boolean usable) {
+                setSqlProxyUsable(list, usable);
+            }
         });
+        //首轮健康检查标记为启动轮：provider 可在该轮回调里同步收敛（例如降级所需的兜底集合是重新
+        //向 config-server 拉取的，运行期不能阻塞业务线程、只能异步），启动成功与否取决于这一轮结束时
+        //有没有可用节点，所以启动轮必须让它收敛完再判定
+        checkStartupReachable();
+        if (!hasUsableSqlProxy()) {
+            throw new IllegalArgumentException("There is no reachable sql proxy");
+        }
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2, new NamedThreadFactory("lbd-connection-manager"));
         scheduler.scheduleAtFixedRate(this::checkBalance, lbDriverUrl.getCheckBalanceIntervalSeconds(), lbDriverUrl.getCheckBalanceIntervalSeconds(), TimeUnit.SECONDS);
         scheduler.scheduleAtFixedRate(this::checkReachable, lbDriverUrl.getCheckHealthIntervalSeconds(), lbDriverUrl.getCheckHealthIntervalSeconds(), TimeUnit.SECONDS);
@@ -303,13 +304,19 @@ public class ConnectionManager {
                 AtomicInteger counter = getConnectErrorCount(pool.getSqlProxy());
                 int count = counter.incrementAndGet();
                 if (count >= 2) {
+                    Set<RealConnection> toClose = new HashSet<>();
                     lock.lock();
                     counter.set(0);
                     try {
                         pool.setUnreachable();
+                        //不可达后池被摘出负载均衡，池内已有的空闲连接不会再被任何路径回收
+                        pool.drainIdleConnections(toClose);
                     } finally {
                         lock.unlock();
                     }
+                    closeConnections(toClose);
+                    //把最新存活快照回传给 provider：az 集合整体不可达时立即降级，不等待下一轮健康检查
+                    notifyReachabilityCheck(currentReachableList(), false);
                 }
                 throw ((SqlProxyConnectException) e).getCause();
             }
@@ -325,10 +332,20 @@ public class ConnectionManager {
         return count;
     }
 
+    //启动阶段的首轮检查
+    private void checkStartupReachable() {
+        checkReachable(true);
+    }
+
     //定时检查所有的sql-proxy是否可达
     private void checkReachable() {
+        checkReachable(false);
+    }
+
+    private void checkReachable(boolean startup) {
         if (healthCheckStatus.compareAndSet(false, true)) {
             try {
+                List<SqlProxy> reachableList = new ArrayList<>();
                 Set<SqlProxy> set = new HashSet<>(poolMap.keySet());
                 for (SqlProxy sqlProxy : set) {
                     SqlProxyConnectionPool pool = poolMap.get(sqlProxy);
@@ -339,6 +356,10 @@ public class ConnectionManager {
                         continue;
                     }
                     boolean reachable = checkReachable0(sqlProxy, pool);
+                    if (reachable) {
+                        reachableList.add(sqlProxy);
+                    }
+                    Set<RealConnection> toClose = new HashSet<>();
                     lock.lock();
                     try {
                         if (reachable && !pool.isReachable()) {
@@ -346,18 +367,49 @@ public class ConnectionManager {
                             logger.info("sql proxy = {}, reachable = false -> true", sqlProxy);
                         } else if (!reachable && pool.isReachable()) {
                             pool.setUnreachable();
+                            //不可达后池被摘出负载均衡，池内已有的空闲连接不会再被任何路径回收
+                            pool.drainIdleConnections(toClose);
                             logger.info("sql proxy = {}, reachable = true -> false", sqlProxy);
                         }
                     } finally {
                         lock.unlock();
                     }
+                    closeConnections(toClose);
                 }
+                //存活快照回传给 provider，降级与恢复都由 provider 决定，本类只上报事实
+                notifyReachabilityCheck(reachableList, startup);
             } catch (Exception e) {
                 logger.error("checkReachable error, url = {}", lbDriverUrl.getUrl(), e);
             } finally {
                 healthCheckStatus.compareAndSet(true, false);
             }
         }
+    }
+
+    //把存活快照回传给 provider，必须在 lock 外调用
+    private void notifyReachabilityCheck(List<SqlProxy> reachableList, boolean startup) {
+        try {
+            sqlProxyProvider.onReachabilityCheck(reachableList, startup);
+        } catch (Exception e) {
+            logger.error("onReachabilityCheck error, url = {}", lbDriverUrl.getUrl(), e);
+        }
+    }
+
+    //不重新做健康检查，只按当前池状态汇总存活节点
+    private List<SqlProxy> currentReachableList() {
+        List<SqlProxy> list = new ArrayList<>();
+        lock.lock();
+        try {
+            for (Map.Entry<SqlProxy, SqlProxyConnectionPool> entry : poolMap.entrySet()) {
+                SqlProxyConnectionPool pool = entry.getValue();
+                if (pool.isOnline() && pool.isReachable()) {
+                    list.add(entry.getKey());
+                }
+            }
+        } finally {
+            lock.unlock();
+        }
+        return list;
     }
 
     //检查sql proxy是否可达
@@ -474,7 +526,9 @@ public class ConnectionManager {
         }
     }
 
-    //兜底检查
+    //周期校准：按 provider 当前需要维护的完整集合补齐/摘除节点
+    //基线用池内实际节点（poolMap.keySet()），不另存一份「期望集合」：池里已下线但还持有在用连接的节点
+    //会重复出现在 removed 里，重复下线是幂等的；好处是被守卫 skip 掉的移除能在下一轮重试
     private void checkSqlProxyListFromProvider() {
         try {
             List<SqlProxy> newList = sqlProxyProvider.load();
@@ -545,6 +599,7 @@ public class ConnectionManager {
             }
             for (SqlProxy sqlProxy : list) {
                 boolean reachable = checkReachable0(sqlProxy, null);
+                Set<RealConnection> toClose = new HashSet<>();
                 lock.lock();
                 try {
                     SqlProxyConnectionPool pool = poolMap.get(sqlProxy);
@@ -567,28 +622,82 @@ public class ConnectionManager {
                             logger.info("sql proxy = {} online, reachable = {}", sqlProxy, reachable);
                         }
                     }
+                    pool.refreshUsableStatus();
                     poolMap.put(sqlProxy, pool);
+                    if (!pool.isReachable() || !pool.isUsable()) {
+                        //被摘出负载均衡的池不允许留空闲连接
+                        pool.drainIdleConnections(toClose);
+                    }
                 } catch (Exception e) {
                     logger.error("add sql proxy = {} error", sqlProxy, e);
                 } finally {
                     lock.unlock();
                 }
+                closeConnections(toClose);
             }
         } catch (Exception e) {
             logger.error("add sql proxy error, list = {}", list, e);
         }
     }
 
+    //调整节点是否参与负载均衡：节点仍在池中继续被探测，只是不再承接新连接；已建立的连接不主动断开
+    private void setSqlProxyUsable(List<SqlProxy> list, boolean usable) {
+        try {
+            if (list == null || list.isEmpty()) {
+                return;
+            }
+            List<SqlProxy> changed = new ArrayList<>();
+            Set<RealConnection> toClose = new HashSet<>();
+            lock.lock();
+            try {
+                for (SqlProxy sqlProxy : list) {
+                    SqlProxyConnectionPool pool = poolMap.get(sqlProxy);
+                    if (pool == null || pool.isUsable() == usable) {
+                        continue;
+                    }
+                    pool.setUsable(usable);
+                    if (!usable) {
+                        //摘出负载均衡后池内已有的空闲连接不会再被任何路径回收
+                        pool.drainIdleConnections(toClose);
+                    }
+                    changed.add(sqlProxy);
+                }
+            } finally {
+                lock.unlock();
+            }
+            closeConnections(toClose);
+            if (!changed.isEmpty()) {
+                logger.info("sql proxy usable changed, list = {}, usable = {}, url = {}",
+                        changed, usable, lbDriverUrl.getUrl());
+            }
+        } catch (Exception e) {
+            logger.error("set sql proxy usable error, list = {}, usable = {}", list, usable, e);
+        }
+    }
+
     private void removeSqlProxy(List<SqlProxy> list) {
         try {
-            Set<SqlProxy> set = new HashSet<>(poolMap.keySet());
-            list.forEach(set::remove);
-            if (set.isEmpty()) {
+            if (list == null || list.isEmpty()) {
+                return;
+            }
+            //provider 只会下发真正不再需要的节点，这里可以整体下线
+            List<SqlProxy> toRemove = new ArrayList<>(list);
+            boolean allSqlProxyRemoving = true;
+            for (SqlProxy sqlProxy : poolMap.keySet()) {
+                if (!toRemove.contains(sqlProxy)) {
+                    allSqlProxyRemoving = false;
+                    break;
+                }
+            }
+            if (allSqlProxyRemoving) {
                 logger.error("try remove all sql proxy, skip");
                 return;
             }
             boolean allSqlProxyOfflineOrUnreachable = true;
-            for (SqlProxy sqlProxy : set) {
+            for (SqlProxy sqlProxy : poolMap.keySet()) {
+                if (toRemove.contains(sqlProxy)) {
+                    continue;
+                }
                 SqlProxyConnectionPool pool = poolMap.get(sqlProxy);
                 if (pool == null) {
                     continue;
@@ -602,7 +711,7 @@ public class ConnectionManager {
                 logger.error("try remove all reachable sql proxy, skip");
                 return;
             }
-            for (SqlProxy sqlProxy : list) {
+            for (SqlProxy sqlProxy : toRemove) {
                 Set<RealConnection> toCloseSet = new HashSet<>();
                 lock.lock();
                 try {
@@ -644,6 +753,22 @@ public class ConnectionManager {
         }
     }
 
+    //锁外关闭连接：关闭一个坏连接可能阻塞（例如等 read timeout），不能放在 lock 内
+    private void closeConnections(Set<RealConnection> connections) {
+        for (RealConnection connection : connections) {
+            CloseUtils.close(connection);
+        }
+    }
+
+    private boolean hasUsableSqlProxy() {
+        for (SqlProxyConnectionPool pool : poolMap.values()) {
+            if (pool.isOnline() && pool.isReachable() && pool.isUsable()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private class SqlProxyConnectionPool {
 
         private final SqlProxy sqlProxy;
@@ -653,6 +778,7 @@ public class ConnectionManager {
 
         private boolean reachable = true;//是否可达
         private boolean online = true;//是否在线
+        private volatile boolean usable = true;//是否参与负载均衡
         private final AtomicLong createCount = new AtomicLong(0);
         private final AtomicLong closeCount = new AtomicLong(0);
         private final AtomicLong reuseCount = new AtomicLong(0);
@@ -684,7 +810,7 @@ public class ConnectionManager {
                 throw new IllegalStateException("return internal connection can not be null");
             }
             boolean needClose = close;
-            if (close || !online || !reachable || !connection.isHealthy()) {
+            if (close || !online || !reachable || !usable || !connection.isHealthy()) {
                 if (usingConnections.remove(connection)) {
                     hostTotalCount.decrease();
                     hostActiveCount.decrease();
@@ -740,28 +866,52 @@ public class ConnectionManager {
             }
         }
 
+        //收掉池内已有的空闲连接。池被摘出负载均衡后（不可达或不参与负载均衡）这些连接业务取不到
+        //（池已不在 borrowQueue），rebalance 也回收不到（池已不在 balanceQueue），留着只会让 totalCount 虚高：
+        //rebalance 会据此误判"物理连接富余"（logicalCount < totalCount），转而从活跃池回收空闲连接，
+        //结果是活跃池留不住空闲连接、每次请求重新建连。调用方必须持有 lock，返回的连接在锁外关闭
+        public void drainIdleConnections(Set<RealConnection> toClose) {
+            while (true) {
+                RealConnection connection = idleConnections.poll();
+                if (connection == null) {
+                    break;
+                }
+                totalCount--;
+                closeCount.incrementAndGet();
+                hostTotalCount.decrease();
+                toClose.add(connection);
+            }
+        }
+
         public void setUnreachable() {
             reachable = false;
-            hostActiveCount.inactive();
-            hostTotalCount.inactive();
+            refreshUsableStatus();
         }
 
         public void setReachable() {
             reachable = true;
-            hostActiveCount.active();
-            hostTotalCount.active();
+            refreshUsableStatus();
         }
 
         public void setOffline() {
             online = false;
-            hostActiveCount.inactive();
-            hostTotalCount.inactive();
+            refreshUsableStatus();
         }
 
         public void setOnline() {
             online = true;
-            hostActiveCount.active();
-            hostTotalCount.active();
+            refreshUsableStatus();
+        }
+
+        //节点参与负载均衡的条件：在线 && 可达 && provider 判定其当前参与负载均衡
+        public void refreshUsableStatus() {
+            if (online && reachable && usable) {
+                hostActiveCount.active();
+                hostTotalCount.active();
+            } else {
+                hostActiveCount.inactive();
+                hostTotalCount.inactive();
+            }
         }
 
         public boolean isOnline() {
@@ -772,11 +922,21 @@ public class ConnectionManager {
             return reachable;
         }
 
+        public boolean isUsable() {
+            return usable;
+        }
+
+        public void setUsable(boolean usable) {
+            this.usable = usable;
+            refreshUsableStatus();
+        }
+
         public LbdStats.SqlProxyStats stats() {
             LbdStats.SqlProxyStats sqlProxyStats = new LbdStats.SqlProxyStats();
             sqlProxyStats.setSqlProxy(sqlProxy);
             sqlProxyStats.setOnline(online);
             sqlProxyStats.setReachable(reachable);
+            sqlProxyStats.setUsable(usable);
             sqlProxyStats.setUsing(usingConnections.size());
             sqlProxyStats.setIdle(idleConnections.size());
             sqlProxyStats.setCreate(createCount.getAndSet(0));

@@ -29,10 +29,23 @@ public class LBDriverUrlParser {
     private static final String CHECK_HEALTH_INTERVAL_SECONDS = "checkHealthIntervalSeconds";
     private static final String CONFIG_SERVER_TIMEOUT = "configServerTimeout";
     private static final String EXCEPTION_SORTER_CLASS_NAME = "exceptionSorter";
+    private static final String AZ = "az";
+    private static final String IP = "ip";
+    private static final String AZ_REFRESH_INTERVAL_SECONDS = "azRefreshIntervalSeconds";
+    private static final String RECOVER_CHECK_COUNT = "recoverCheckCount";
+
+    //可用区与本机 ip 属于「部署环境」的属性，同一个 url 常被一批机器共用（容器镜像、共享配置），
+    //所以额外支持 -D 覆盖，且优先级高于 url 上的同名参数
+    private static final String SYSTEM_PROPERTY_PREFIX = "lbd.";
 
     public static LBDriverUrl parseUrl(String url, Properties info) throws SQLException {
         if (url == null || url.isEmpty()) {
             throw new SQLException("url is null.");
+        }
+        //url 与其参数会被拼进请求参数并打印到日志，含换行/回车等控制字符可以伪造出独立的日志行
+        //这里在入口拒绝而不是转义：jdbc url 本就应写成单行，带控制字符一定是配置错误
+        if (containsControlChar(url)) {
+            throw new SQLException("illegal char in url, url should not contain control char");
         }
         if (!url.startsWith(Constants.LB_DRIVER_URL_PREFIX)) {
             logger.warn("not lbd driver url = {}, props = {}", url, info);
@@ -72,6 +85,10 @@ public class LBDriverUrlParser {
         int checkHealthIntervalSeconds = Constants.CHECK_HEALTH_INTERVAL_SECONDS;
         int configServerTimeout = Constants.CONFIG_SERVER_TIMEOUT;
         String exceptionSorterClassName = Constants.EXCEPTION_SORTER_CLASS_NAME;
+        String az = null;
+        String ip = null;
+        int azRefreshIntervalSeconds = Constants.AZ_REFRESH_INTERVAL_SECONDS;
+        int recoverCheckCount = Constants.RECOVER_CHECK_COUNT;
 
         String addrs = split[0];
         String[] schemaAndProps = split[1].split("\\?");
@@ -113,6 +130,20 @@ public class LBDriverUrlParser {
                     case EXCEPTION_SORTER_CLASS_NAME:
                         exceptionSorterClassName = value;
                         break;
+                    case AZ:
+                        az = value.isEmpty() ? null : value;
+                        break;
+                    case IP:
+                        ip = value.isEmpty() ? null : value;
+                        break;
+                    case AZ_REFRESH_INTERVAL_SECONDS:
+                        azRefreshIntervalSeconds = parsePositiveInt(value, AZ_REFRESH_INTERVAL_SECONDS,
+                                Constants.AZ_REFRESH_INTERVAL_SECONDS, url);
+                        break;
+                    case RECOVER_CHECK_COUNT:
+                        recoverCheckCount = parsePositiveInt(value, RECOVER_CHECK_COUNT,
+                                Constants.RECOVER_CHECK_COUNT, url);
+                        break;
                     default:
                         urlProps.setProperty(key, value);
                         break;
@@ -130,6 +161,10 @@ public class LBDriverUrlParser {
         builder.checkBalanceIntervalSeconds(checkBalanceIntervalSeconds);
         builder.checkHealthIntervalSeconds(checkHealthIntervalSeconds);
         builder.exceptionSorter(exceptionSorterClassName);
+        builder.setAz(overrideFromSystemProperty(AZ, az));
+        builder.setIp(overrideFromSystemProperty(IP, ip));
+        builder.azRefreshIntervalSeconds(azRefreshIntervalSeconds);
+        builder.recoverCheckCount(recoverCheckCount);
 
         if (type == LBDriverType.remote) {
             String[] split1 = addrs.split(":");
@@ -169,5 +204,53 @@ public class LBDriverUrlParser {
             builder.setSqlProxyList(list);
         }
         return builder.build();
+    }
+
+    //-Dlbd.az / -Dlbd.ip 覆盖 url 上的同名参数，优先级最高；取值为空串等价于「不配置」，
+    //这样 url 上已配置时也能用 -D 清掉（同一份 url 被共享、单机需要特例时有用）
+    private static String overrideFromSystemProperty(String name, String urlValue) throws SQLException {
+        String propertyName = SYSTEM_PROPERTY_PREFIX + name;
+        String value = System.getProperty(propertyName);
+        if (value == null) {
+            return urlValue;
+        }
+        String trimmed = value.trim();
+        //与 url 参数一样，这些值会被拼进请求参数并打印到日志，不允许含控制字符
+        if (containsControlChar(trimmed)) {
+            throw new SQLException("illegal char in system property " + propertyName
+                    + ", it should not contain control char");
+        }
+        if (trimmed.isEmpty()) {
+            if (urlValue != null) {
+                logger.info("system property {} is empty, url param {} will not be used", propertyName, name);
+            }
+            return null;
+        }
+        logger.info("system property {} = {} overrides url param {}, value of url param = {}",
+                propertyName, trimmed, name, urlValue);
+        return trimmed;
+    }
+
+    private static int parsePositiveInt(String value, String name, int defaultValue, String url) {
+        try {
+            int parsed = Integer.parseInt(value);
+            if (parsed > 0) {
+                return parsed;
+            }
+        } catch (Exception e) {
+            //ignore
+        }
+        logger.warn("illegal {} = {}, use default {} instead, url = {}", name, value, defaultValue, url);
+        return defaultValue;
+    }
+
+    private static boolean containsControlChar(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c == '\n' || c == '\r' || c == '\t') {
+                return true;
+            }
+        }
+        return false;
     }
 }

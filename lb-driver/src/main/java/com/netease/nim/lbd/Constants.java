@@ -1,5 +1,8 @@
 package com.netease.nim.lbd;
 
+import java.io.InputStream;
+import java.util.Properties;
+
 /**
  * Created by caojiajun on 2025/12/3
  */
@@ -64,5 +67,45 @@ public class Constants {
      * default EXCEPTION_SORTER_CLASS_NAME
      */
     public static final String EXCEPTION_SORTER_CLASS_NAME = MySqlExceptionSorter.class.getName();
+
+    /**
+     * default AZ_REFRESH_INTERVAL_SECONDS，降级期间刷新 az 亲和集合拓扑的间隔
+     */
+    public static final int AZ_REFRESH_INTERVAL_SECONDS = 30;
+
+    /**
+     * default RECOVER_CHECK_COUNT，节点由不可达翻回可达所需的连续健康检查次数
+     */
+    public static final int RECOVER_CHECK_COUNT = 2;
+
+    /**
+     * client feature level，取值来自 ClientFeatureLevel.CURRENT，见 ClientFeatureLevel
+     */
+    public static final int CLIENT_FEATURE_LEVEL = ClientFeatureLevel.CURRENT.getLevel();
+
+    /**
+     * 无法解析出客户端版本时使用的占位值
+     */
+    public static final String UNKNOWN_CLIENT_VERSION = "unknown";
+
+    /**
+     * client version，仅用于 config-server 日志与灰度观测，不参与判定
+     */
+    public static final String CLIENT_VERSION = resolveClientVersion();
+
+    private static String resolveClientVersion() {
+        try (InputStream inputStream = Constants.class.getClassLoader()
+                .getResourceAsStream("META-INF/maven/com.netease.nim/lb-driver/pom.properties")) {
+            if (inputStream == null) {
+                return UNKNOWN_CLIENT_VERSION;
+            }
+            Properties properties = new Properties();
+            properties.load(inputStream);
+            String version = properties.getProperty("version");
+            return version != null ? version : UNKNOWN_CLIENT_VERSION;
+        } catch (Exception e) {
+            return UNKNOWN_CLIENT_VERSION;
+        }
+    }
 
 }
