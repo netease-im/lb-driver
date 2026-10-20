@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 从 config-server 拉取 sql-proxy 集合的 provider，多可用区（az）亲和与降级兜底都收敛在本类内部
@@ -89,6 +90,8 @@ public class RemoteSqlProxyProvider implements SqlProxyProvider {
     //降级边沿触发的异步兜底拉取做在飞去重：兜底集合尚未生效时恢复滞回被压成 1 次健康检查，
     //az 可达性抖动会连续产生降级边沿，不去重就会在单线程刷新器上排队多次拉取
     private final AtomicBoolean fallbackRefreshPending = new AtomicBoolean(false);
+    //运行期的状态下发可能探测新节点或关闭连接，统一在刷新线程执行；合并高频健康快照，避免任务排队无界增长
+    private final AtomicInteger stateSyncWork = new AtomicInteger();
 
     //本机地址，按需解析一次后缓存；解析失败后按 azRefreshIntervalSeconds 退避重试
     private volatile String localIp;
@@ -173,17 +176,46 @@ public class RemoteSqlProxyProvider implements SqlProxyProvider {
             if (startup) {
                 //启动阶段的首轮回调由启动线程调用，且启动成功与否取决于本次是否收敛，允许同步拉
                 refreshFallback();
-            } else {
-                //运行期的回调可能跑在业务线程（getConnection/syncCreating）上，交给刷新线程异步拉，
-                //否则 config-server 的 connect/read 超时会加到业务建连耗时上
-                submitFallbackRefresh();
             }
         } else if (recover) {
             logger.info("sql proxy in az recovered, exit az fallback, url = {}, configServer = {}, schema = {}, az = {}",
                     lbDriverUrl.getUrl(), configServer(), lbDriverUrl.getConfigServerSchema(), lbDriverUrl.getAz());
         }
-        //每一轮都下发一次生效状态：兜底集合拉取可能失败，且 ConnectionManager 的周期校准可能补入新节点
-        syncState();
+        //每一轮都下发一次生效状态：兜底集合拉取可能失败，且 ConnectionManager 的周期校准可能补入新节点。
+        //运行期的下发会触发节点探测或关闭连接，不能留在可能来自业务线程的回调里执行。
+        if (startup) {
+            syncState();
+        } else {
+            submitStateSync();
+            if (degrade) {
+                //先用已有兜底缓存收敛，再刷新兜底集合；首次降级没有缓存时由刷新完成后的 syncState 下发
+                submitFallbackRefresh();
+            }
+        }
+    }
+
+    private void submitStateSync() {
+        if (stateSyncWork.getAndIncrement() != 0) {
+            return;
+        }
+        try {
+            refreshExecutor.execute(() -> {
+                int missed = 1;
+                do {
+                    try {
+                        syncState();
+                    } catch (Exception e) {
+                        logger.error("sync sql proxy state error, configServer = {}, schema = {}",
+                                configServer(), lbDriverUrl.getConfigServerSchema(), e);
+                    }
+                    missed = stateSyncWork.addAndGet(-missed);
+                } while (missed != 0);
+            });
+        } catch (Exception e) {
+            stateSyncWork.set(0);
+            logger.error("submit sql proxy state sync error, configServer = {}, schema = {}",
+                    configServer(), lbDriverUrl.getConfigServerSchema(), e);
+        }
     }
 
     //降级边沿的兜底拉取放到刷新线程执行，不阻塞触发降级的线程；

@@ -18,7 +18,10 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * RemoteSqlProxyProvider 的单测：请求参数、双变体 md5 隔离、降级/恢复状态机
@@ -84,6 +87,39 @@ public class RemoteSqlProxyProviderTest {
                 + ", actual = " + configServer.getFallbackRequestCount());
     }
 
+    private void awaitDesired(RemoteSqlProxyProvider provider, Set<SqlProxy> expect) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 10000;
+        while (System.currentTimeMillis() < deadline) {
+            if (expect.equals(set(provider.load()))) {
+                return;
+            }
+            Thread.sleep(20);
+        }
+        Assert.fail("节点集合未在预期时间内收敛，expect = " + expect + ", actual = " + provider.load());
+    }
+
+    private void awaitRemoved(RecordingCallback callback, SqlProxy proxy) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 10000;
+        while (System.currentTimeMillis() < deadline) {
+            if (callback.removed.contains(proxy)) {
+                return;
+            }
+            Thread.sleep(20);
+        }
+        Assert.fail("节点未在预期时间内移除，proxy = " + proxy);
+    }
+
+    private void awaitAddedCount(RecordingCallback callback, SqlProxy proxy, int expect) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 10000;
+        while (System.currentTimeMillis() < deadline) {
+            if (Collections.frequency(callback.added, proxy) >= expect) {
+                return;
+            }
+            Thread.sleep(20);
+        }
+        Assert.fail("节点添加回调次数不足，proxy = " + proxy + ", expect = " + expect);
+    }
+
     //记录 provider 下发给 ConnectionManager 的集合变化与可用性
     private static class RecordingCallback implements SqlProxyCallback {
 
@@ -91,14 +127,42 @@ public class RemoteSqlProxyProviderTest {
         private final List<SqlProxy> removed = new CopyOnWriteArrayList<>();
         private final Set<SqlProxy> usable = ConcurrentHashMap.newKeySet();
         private final Set<SqlProxy> unusable = ConcurrentHashMap.newKeySet();
+        private final AtomicBoolean blockAdd = new AtomicBoolean();
+        private final CountDownLatch addEntered = new CountDownLatch(1);
+        private final CountDownLatch allowAdd = new CountDownLatch(1);
+        private final AtomicBoolean blockRemove = new AtomicBoolean();
+        private final CountDownLatch removeEntered = new CountDownLatch(1);
+        private final CountDownLatch allowRemove = new CountDownLatch(1);
 
         @Override
         public void add(List<SqlProxy> list) {
+            if (blockAdd.get()) {
+                addEntered.countDown();
+                try {
+                    if (!allowAdd.await(3, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("等待释放节点添加回调超时");
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(e);
+                }
+            }
             added.addAll(list);
         }
 
         @Override
         public void remove(List<SqlProxy> list) {
+            if (blockRemove.get()) {
+                removeEntered.countDown();
+                try {
+                    if (!allowRemove.await(3, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("等待释放节点移除回调超时");
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(e);
+                }
+            }
             removed.addAll(list);
         }
 
@@ -228,6 +292,9 @@ public class RemoteSqlProxyProviderTest {
 
         //连续第 2 次恢复：切回 az 集合，兜底集合从池中摘掉（下次降级再按需重新加入）
         provider.onReachabilityCheck(Collections.singletonList(az), false);
+        awaitUsable(callback, set(az));
+        awaitDesired(provider, set(az));
+        awaitRemoved(callback, fallback);
         Assert.assertEquals(set(az), callback.usable());
         Assert.assertEquals(set(fallback), callback.unusable());
         Assert.assertEquals(set(az), set(provider.load()));
@@ -248,6 +315,7 @@ public class RemoteSqlProxyProviderTest {
         awaitUsable(callback, set(fallback));
 
         provider.onReachabilityCheck(Collections.singletonList(az), false);
+        awaitUsable(callback, set(az));
         Assert.assertEquals(set(az), callback.usable());
         Assert.assertEquals(set(fallback), callback.unusable());
     }
@@ -263,6 +331,7 @@ public class RemoteSqlProxyProviderTest {
 
         //服务端没有默认集合：不能把 az 集合摘掉，否则会出现一个可用节点都没有的空窗
         provider.onReachabilityCheck(Collections.emptyList(), false);
+        awaitUsable(callback, set(az));
         Assert.assertEquals(set(az), callback.usable());
         Assert.assertTrue(callback.unusable().isEmpty());
 
@@ -314,6 +383,7 @@ public class RemoteSqlProxyProviderTest {
         RecordingCallback callback = new RecordingCallback();
         provider.addSqlProxyCallback(callback);
         provider.onReachabilityCheck(Collections.emptyList(), false);
+        awaitUsable(callback, set(az));
         Assert.assertEquals(1, configServer.getFallbackRequestCount());
         Assert.assertEquals(set(az), callback.usable());
         Assert.assertTrue(callback.added.isEmpty());
@@ -324,6 +394,7 @@ public class RemoteSqlProxyProviderTest {
         callback = new RecordingCallback();
         provider.addSqlProxyCallback(callback);
         provider.onReachabilityCheck(Collections.emptyList(), false);
+        awaitUsable(callback, set(az));
         Assert.assertEquals(1, configServer.getFallbackRequestCount());
         Assert.assertEquals(set(az), callback.usable());
         Assert.assertTrue(callback.added.isEmpty());
@@ -372,6 +443,70 @@ public class RemoteSqlProxyProviderTest {
         //兜底集合仍会在后台落地并接管
         awaitUsable(callback, set(fallback));
         Assert.assertEquals(1, configServer.getFallbackRequestCount());
+    }
+
+    @Test
+    public void testSecondDegradeDoesNotBlockOnCachedFallbackAdd() throws Exception {
+        configServer.setAffinityList(AZ_HOST_PORT);
+        configServer.setFallbackList(FALLBACK_HOST_PORT);
+        RemoteSqlProxyProvider provider = new RemoteSqlProxyProvider(
+                url("?az=az1&ip=10.1.1.1&recoverCheckCount=1"));
+        RecordingCallback callback = new RecordingCallback();
+        provider.addSqlProxyCallback(callback);
+        SqlProxy az = proxy(AZ_HOST_PORT);
+        SqlProxy fallback = proxy(FALLBACK_HOST_PORT);
+
+        provider.onReachabilityCheck(Collections.emptyList(), false);
+        awaitUsable(callback, set(fallback));
+        awaitAddedCount(callback, fallback, 1);
+        provider.onReachabilityCheck(Collections.singletonList(az), false);
+        awaitUsable(callback, set(az));
+        awaitDesired(provider, set(az));
+        awaitRemoved(callback, fallback);
+
+        //再次降级会复用已缓存的兜底集合。用阻塞添加回调模拟 ConnectionManager 的建连探测。
+        callback.blockAdd.set(true);
+        long start = System.currentTimeMillis();
+        provider.onReachabilityCheck(Collections.emptyList(), false);
+        long cost = System.currentTimeMillis() - start;
+        try {
+            Assert.assertTrue("运行期节点添加不应阻塞调用线程，cost = " + cost, cost < 500);
+            Assert.assertTrue("兜底节点添加回调应在后台执行", callback.addEntered.await(3, TimeUnit.SECONDS));
+        } finally {
+            callback.allowAdd.countDown();
+        }
+        awaitAddedCount(callback, fallback, 2);
+        awaitDesired(provider, set(az, fallback));
+    }
+
+    @Test
+    public void testRecoverDoesNotBlockOnFallbackRemoval() throws Exception {
+        configServer.setAffinityList(AZ_HOST_PORT);
+        configServer.setFallbackList(FALLBACK_HOST_PORT);
+        RemoteSqlProxyProvider provider = new RemoteSqlProxyProvider(
+                url("?az=az1&ip=10.1.1.1&recoverCheckCount=1"));
+        RecordingCallback callback = new RecordingCallback();
+        provider.addSqlProxyCallback(callback);
+        SqlProxy az = proxy(AZ_HOST_PORT);
+        SqlProxy fallback = proxy(FALLBACK_HOST_PORT);
+
+        provider.onReachabilityCheck(Collections.emptyList(), false);
+        awaitUsable(callback, set(fallback));
+        awaitAddedCount(callback, fallback, 1);
+
+        //恢复时移除兜底节点可能关闭池里的空闲连接，同样不能占用调用回调的线程。
+        callback.blockRemove.set(true);
+        long start = System.currentTimeMillis();
+        provider.onReachabilityCheck(Collections.singletonList(az), false);
+        long cost = System.currentTimeMillis() - start;
+        try {
+            Assert.assertTrue("运行期节点移除不应阻塞调用线程，cost = " + cost, cost < 500);
+            Assert.assertTrue("兜底节点移除回调应在后台执行", callback.removeEntered.await(3, TimeUnit.SECONDS));
+        } finally {
+            callback.allowRemove.countDown();
+        }
+        awaitRemoved(callback, fallback);
+        awaitDesired(provider, set(az));
     }
 
     @Test
@@ -456,6 +591,9 @@ public class RemoteSqlProxyProviderTest {
         provider.onReachabilityCheck(Collections.emptyList(), false);
         awaitUsable(callback, set(fallback));
         provider.onReachabilityCheck(Collections.singletonList(az), false);
+        awaitUsable(callback, set(az));
+        awaitDesired(provider, set(az));
+        awaitRemoved(callback, fallback);
         Assert.assertEquals(set(az), callback.usable());
         Assert.assertEquals(set(az), set(provider.load()));
         Assert.assertTrue(callback.removed.contains(fallback));
@@ -463,6 +601,7 @@ public class RemoteSqlProxyProviderTest {
         //再次降级：兜底集合必须重新进池（即便这一轮服务端返回 304、集合来自缓存）
         provider.onReachabilityCheck(Collections.emptyList(), false);
         awaitUsable(callback, set(fallback));
+        awaitDesired(provider, set(az, fallback));
         Assert.assertEquals(set(az, fallback), set(provider.load()));
     }
 
