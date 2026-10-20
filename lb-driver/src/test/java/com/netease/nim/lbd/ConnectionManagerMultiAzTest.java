@@ -7,6 +7,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.lang.reflect.Field;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -50,6 +51,15 @@ public class ConnectionManagerMultiAzTest {
     private static SqlProxy proxy(String hostPort) {
         String[] split = hostPort.split(":");
         return new SqlProxy(split[0], Integer.parseInt(split[1]));
+    }
+
+    private static int callbackCount(RemoteSqlProxyProvider provider) throws Exception {
+        Field field = RemoteSqlProxyProvider.class.getDeclaredField("callbackList");
+        field.setAccessible(true);
+        List<?> callbacks = (List<?>) field.get(provider);
+        synchronized (callbacks) {
+            return callbacks.size();
+        }
     }
 
     private LBDriverUrl url(String params) throws SQLException {
@@ -275,6 +285,31 @@ public class ConnectionManagerMultiAzTest {
         } catch (IllegalArgumentException e) {
             Assert.assertEquals("There is no reachable sql proxy", e.getMessage());
         }
+    }
+
+    @Test
+    public void testFailedStartupDoesNotRetainManagerCallbacks() throws Exception {
+        fakeDriver.setUnreachable(AZ_HOST_PORT, true);
+        fakeDriver.setUnreachable(FALLBACK_HOST_PORT, true);
+        LBDriverUrl lbDriverUrl = url("&az=az1&recoverCheckCount=1");
+        RemoteSqlProxyProvider provider = new RemoteSqlProxyProvider(lbDriverUrl);
+
+        for (int i = 0; i < 2; i++) {
+            try {
+                new ConnectionManager(lbDriverUrl, provider);
+                Assert.fail("所有节点不可达时启动应失败");
+            } catch (IllegalArgumentException e) {
+                Assert.assertEquals("There is no reachable sql proxy", e.getMessage());
+            }
+            Assert.assertEquals("失败的 manager 不应留在 provider 的回调列表中", 0, callbackCount(provider));
+        }
+
+        fakeDriver.setUnreachable(AZ_HOST_PORT, false);
+        ConnectionManager manager = new ConnectionManager(lbDriverUrl, provider);
+        Assert.assertEquals("成功启动的 manager 应保留一个回调", 1, callbackCount(provider));
+        RealConnection connection = manager.getConnection();
+        Assert.assertEquals(proxy(AZ_HOST_PORT), connection.getSqlProxy());
+        manager.returnConnection(connection);
     }
 
     @Test

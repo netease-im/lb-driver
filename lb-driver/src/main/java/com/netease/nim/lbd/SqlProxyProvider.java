@@ -12,6 +12,14 @@ public interface SqlProxyProvider {
     void addSqlProxyCallback(SqlProxyCallback callback);
 
     /**
+     * 撤销未成功启动的 ConnectionManager 注册的回调。
+     * 自定义 provider 若保存了回调，应覆盖本方法；默认实现保持旧版 SPI 的兼容性。
+     * @param callback 待移除的回调
+     */
+    default void removeSqlProxyCallback(SqlProxyCallback callback) {
+    }
+
+    /**
      * 每轮可达性检查结束后的存活快照，provider 可据此调整下发给 ConnectionManager 的集合
      * <p>
      * 实现方需要通过 addSqlProxyCallback 回调来增删节点或调整节点是否参与负载均衡

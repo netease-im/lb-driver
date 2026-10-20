@@ -141,6 +141,13 @@ public class RemoteSqlProxyProvider implements SqlProxyProvider {
     }
 
     @Override
+    public void removeSqlProxyCallback(SqlProxyCallback callback) {
+        synchronized (callbackList) {
+            callbackList.remove(callback);
+        }
+    }
+
+    @Override
     public void onReachabilityCheck(List<SqlProxy> reachableList, boolean startup) {
         Set<SqlProxy> reachableSet = new HashSet<>(reachableList);
         boolean degrade = false;

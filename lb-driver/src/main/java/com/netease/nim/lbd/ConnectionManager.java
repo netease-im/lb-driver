@@ -74,7 +74,7 @@ public class ConnectionManager {
         } finally {
             lock.unlock();
         }
-        sqlProxyProvider.addSqlProxyCallback(new SqlProxyCallback() {
+        SqlProxyCallback callback = new SqlProxyCallback() {
             @Override
             public void add(List<SqlProxy> list) {
                 addSqlProxy(list);
@@ -89,17 +89,30 @@ public class ConnectionManager {
             public void setUsable(List<SqlProxy> list, boolean usable) {
                 setSqlProxyUsable(list, usable);
             }
-        });
-        //首轮健康检查标记为启动轮：provider 可在该轮回调里同步收敛（例如降级所需的兜底集合是重新
-        //向 config-server 拉取的，运行期不能阻塞业务线程、只能异步），启动成功与否取决于这一轮结束时
-        //有没有可用节点，所以启动轮必须让它收敛完再判定
-        checkStartupReachable();
-        if (!hasUsableSqlProxy()) {
-            throw new IllegalArgumentException("There is no reachable sql proxy");
+        };
+        ScheduledExecutorService scheduler = null;
+        boolean initialized = false;
+        try {
+            sqlProxyProvider.addSqlProxyCallback(callback);
+            //首轮健康检查标记为启动轮：provider 可在该轮回调里同步收敛（例如降级所需的兜底集合是重新
+            //向 config-server 拉取的，运行期不能阻塞业务线程、只能异步），启动成功与否取决于这一轮结束时
+            //有没有可用节点，所以启动轮必须让它收敛完再判定
+            checkStartupReachable();
+            if (!hasUsableSqlProxy()) {
+                throw new IllegalArgumentException("There is no reachable sql proxy");
+            }
+            scheduler = Executors.newScheduledThreadPool(2, new NamedThreadFactory("lbd-connection-manager"));
+            scheduler.scheduleAtFixedRate(this::checkBalance, lbDriverUrl.getCheckBalanceIntervalSeconds(), lbDriverUrl.getCheckBalanceIntervalSeconds(), TimeUnit.SECONDS);
+            scheduler.scheduleAtFixedRate(this::checkReachable, lbDriverUrl.getCheckHealthIntervalSeconds(), lbDriverUrl.getCheckHealthIntervalSeconds(), TimeUnit.SECONDS);
+            initialized = true;
+        } finally {
+            if (!initialized) {
+                sqlProxyProvider.removeSqlProxyCallback(callback);
+                if (scheduler != null) {
+                    scheduler.shutdownNow();
+                }
+            }
         }
-        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2, new NamedThreadFactory("lbd-connection-manager"));
-        scheduler.scheduleAtFixedRate(this::checkBalance, lbDriverUrl.getCheckBalanceIntervalSeconds(), lbDriverUrl.getCheckBalanceIntervalSeconds(), TimeUnit.SECONDS);
-        scheduler.scheduleAtFixedRate(this::checkReachable, lbDriverUrl.getCheckHealthIntervalSeconds(), lbDriverUrl.getCheckHealthIntervalSeconds(), TimeUnit.SECONDS);
     }
 
 
