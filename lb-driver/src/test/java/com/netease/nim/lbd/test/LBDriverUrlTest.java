@@ -168,6 +168,20 @@ public class LBDriverUrlTest {
     }
 
     @Test
+    public void testOtherDriverUrlIsIgnoredBeforeValidation() throws SQLException {
+        String url = "jdbc:mysql://127.0.0.1:3306/db";
+        Assert.assertNull(LBDriverUrlParser.parseUrl(url, new Properties()));
+        //DriverManager 会继续交给其他驱动；本驱动不能先对别人的 URL 抛异常。
+        Assert.assertNull(LBDriverUrlParser.parseUrl(url + "\n", new Properties()));
+    }
+
+    @Test
+    public void testUnsupportedLbdTypeReturnsNull() throws SQLException {
+        String url = "jdbc:mysql:lb:foo://127.0.0.1/db?configServerApiKey=secret";
+        Assert.assertNull(LBDriverUrlParser.parseUrl(url, new Properties()));
+    }
+
+    @Test
     public void testNewLineInUrlRejected() {
         //url 与其参数会被拼进请求参数并打进日志，含换行可以伪造出独立的日志行
         String url = "jdbc:mysql:lb:remote://10.0.0.1:80/mydatabase?az=az1\nfake.log.line=1";

@@ -42,14 +42,14 @@ public class LBDriverUrlParser {
         if (url == null || url.isEmpty()) {
             throw new SQLException("url is null.");
         }
-        //url 与其参数会被拼进请求参数并打印到日志，含换行/回车等控制字符可以伪造出独立的日志行
-        //这里在入口拒绝而不是转义：jdbc url 本就应写成单行，带控制字符一定是配置错误
+        if (!url.startsWith(Constants.LB_DRIVER_URL_PREFIX)) {
+            //DriverManager 会让所有已注册的驱动尝试同一个 URL，普通 JDBC URL 不是异常
+            return null;
+        }
+        //LBD url 与其参数会被拼进请求参数并打印到日志，含换行/回车等控制字符可以伪造出独立的日志行
+        //这里在入口拒绝而不是转义：LBD url 本就应写成单行，带控制字符一定是配置错误
         if (containsControlChar(url)) {
             throw new SQLException("illegal char in url, url should not contain control char");
-        }
-        if (!url.startsWith(Constants.LB_DRIVER_URL_PREFIX)) {
-            logger.warn("not lbd driver url = {}, props = {}", url, info);
-            return null;
         }
 
         LBDriverUrl.Builder builder = new LBDriverUrl.Builder(url);
@@ -59,7 +59,8 @@ public class LBDriverUrlParser {
         } else if (url.startsWith(Constants.LB_DRIVER_REMOTE_URL_PREFIX)) {
             type = LBDriverType.remote;
         } else {
-            logger.warn("illegal lbd driver url = {}, props = {}", url, info);
+            //url 可能含 configServerApiKey，info 可能含数据库密码，日志只记录错误类型
+            logger.warn("illegal lbd driver url type");
             return null;
         }
         builder.setType(type);
