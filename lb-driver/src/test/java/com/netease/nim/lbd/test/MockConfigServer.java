@@ -160,7 +160,7 @@ public class MockConfigServer {
         }
     }
 
-    private static Map<String, String> parseQuery(String rawQuery) {
+    private static Map<String, String> parseQuery(String rawQuery) throws IOException {
         Map<String, String> map = new HashMap<>();
         if (rawQuery == null || rawQuery.isEmpty()) {
             return map;
@@ -170,8 +170,8 @@ public class MockConfigServer {
             if (nameAndValue.length != 2) {
                 continue;
             }
-            map.put(URLDecoder.decode(nameAndValue[0], StandardCharsets.UTF_8),
-                    URLDecoder.decode(nameAndValue[1], StandardCharsets.UTF_8));
+            map.put(URLDecoder.decode(nameAndValue[0], StandardCharsets.UTF_8.name()),
+                    URLDecoder.decode(nameAndValue[1], StandardCharsets.UTF_8.name()));
         }
         return map;
     }
