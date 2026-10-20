@@ -302,6 +302,32 @@ public class RemoteSqlProxyProviderTest {
     }
 
     @Test
+    public void testConnectionFailureSnapshotDoesNotAdvanceRecovery() throws Exception {
+        configServer.setAffinityList(AZ_HOST_PORT);
+        configServer.setFallbackList(FALLBACK_HOST_PORT);
+        RemoteSqlProxyProvider provider = new RemoteSqlProxyProvider(
+                url("?az=az1&ip=10.1.1.1&recoverCheckCount=2"));
+        RecordingCallback callback = new RecordingCallback();
+        provider.addSqlProxyCallback(callback);
+        SqlProxy az = proxy(AZ_HOST_PORT);
+        SqlProxy fallback = proxy(FALLBACK_HOST_PORT);
+
+        //建连失败快照仍要及时触发降级。
+        provider.onConnectionFailure(Collections.emptyList());
+        awaitUsable(callback, set(fallback));
+
+        provider.onReachabilityCheck(Collections.singletonList(az), false);
+        provider.onConnectionFailure(Collections.singletonList(az));
+        provider.onConnectionFailure(Collections.singletonList(az));
+        Assert.assertEquals("业务失败快照不能充当第二轮健康检查", set(fallback), callback.usable());
+
+        provider.onReachabilityCheck(Collections.singletonList(az), false);
+        awaitUsable(callback, set(az));
+        awaitDesired(provider, set(az));
+        awaitRemoved(callback, fallback);
+    }
+
+    @Test
     public void testRecoverImmediatelyWithOneCheck() throws Exception {
         configServer.setAffinityList(AZ_HOST_PORT);
         configServer.setFallbackList(FALLBACK_HOST_PORT);
@@ -434,9 +460,9 @@ public class RemoteSqlProxyProviderTest {
         provider.addSqlProxyCallback(callback);
         SqlProxy fallback = proxy(FALLBACK_HOST_PORT);
 
-        //az 集合整体不可达时，onReachabilityCheck 可能跑在业务线程上，必须立刻返回
+        //az 集合整体不可达时，建连失败快照可能来自业务线程，必须立刻返回
         long start = System.currentTimeMillis();
-        provider.onReachabilityCheck(Collections.emptyList(), false);
+        provider.onConnectionFailure(Collections.emptyList());
         long cost = System.currentTimeMillis() - start;
         Assert.assertTrue("降级边沿不应阻塞调用线程，cost = " + cost, cost < 500);
 

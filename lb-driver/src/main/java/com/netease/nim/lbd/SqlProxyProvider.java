@@ -24,14 +24,21 @@ public interface SqlProxyProvider {
      * <p>
      * 实现方需要通过 addSqlProxyCallback 回调来增删节点或调整节点是否参与负载均衡
      * <p>
-     * 注意本方法的执行线程与阻塞约束：{@code startup = false} 时可能跑在业务线程
-     * （如 getConnection → syncCreating）上，实现方不得做阻塞 I/O；需要异步收敛的（例如降级要重新
-     * 向 config-server 拉兜底集合）必须交给自己的刷新线程，并在下一轮回调时下发。
+     * {@code startup = false} 时由周期健康检查线程调用；需要异步收敛的操作应交给实现方的刷新线程。
      * {@code startup = true} 时由启动线程调用，实现方可以直接阻塞等待收敛：
      * 启动成功与否取决于本方法返回时是否有节点被置为可用
      * @param reachableList 当前可达的节点列表
      * @param startup 是否是启动阶段的首轮检查
      */
     default void onReachabilityCheck(List<SqlProxy> reachableList, boolean startup) {
+    }
+
+    /**
+     * 建连失败时按当前池状态汇总的存活快照，用于不等待下一轮健康检查就触发降级。
+     * 本方法可能在业务线程调用，不得做阻塞 I/O；默认转交旧回调以兼容自定义 provider。
+     * @param reachableList 当前可达的节点列表
+     */
+    default void onConnectionFailure(List<SqlProxy> reachableList) {
+        onReachabilityCheck(reachableList, false);
     }
 }

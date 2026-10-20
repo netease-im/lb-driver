@@ -329,7 +329,7 @@ public class ConnectionManager {
                     }
                     closeConnections(toClose);
                     //把最新存活快照回传给 provider：az 集合整体不可达时立即降级，不等待下一轮健康检查
-                    notifyReachabilityCheck(currentReachableList(), false);
+                    notifyConnectionFailure(currentReachableList());
                 }
                 throw ((SqlProxyConnectException) e).getCause();
             }
@@ -405,6 +405,14 @@ public class ConnectionManager {
             sqlProxyProvider.onReachabilityCheck(reachableList, startup);
         } catch (Exception e) {
             logger.error("onReachabilityCheck error, url = {}", lbDriverUrl.getUrl(), e);
+        }
+    }
+
+    private void notifyConnectionFailure(List<SqlProxy> reachableList) {
+        try {
+            sqlProxyProvider.onConnectionFailure(reachableList);
+        } catch (Exception e) {
+            logger.error("onConnectionFailure error, url = {}", lbDriverUrl.getUrl(), e);
         }
     }
 

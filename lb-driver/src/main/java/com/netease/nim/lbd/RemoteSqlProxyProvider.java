@@ -64,7 +64,7 @@ public class RemoteSqlProxyProvider implements SqlProxyProvider {
     private final LBDriverUrl lbDriverUrl;
     private final List<SqlProxyCallback> callbackList = new ArrayList<>();
 
-    //降级状态机：onReachabilityCheck 来自健康检查线程与业务线程，可能与刷新线程并发
+    //降级状态机：健康检查与建连失败快照可能从不同线程到来，也可能与刷新线程并发
     private final Object stateLock = new Object();
     //请求串行化：同一变体不并发拉取，避免 md5 与集合错乱
     private final Object fetchLock = new Object();
@@ -149,6 +149,15 @@ public class RemoteSqlProxyProvider implements SqlProxyProvider {
 
     @Override
     public void onReachabilityCheck(List<SqlProxy> reachableList, boolean startup) {
+        handleReachabilitySnapshot(reachableList, startup, true);
+    }
+
+    @Override
+    public void onConnectionFailure(List<SqlProxy> reachableList) {
+        handleReachabilitySnapshot(reachableList, false, false);
+    }
+
+    private void handleReachabilitySnapshot(List<SqlProxy> reachableList, boolean startup, boolean healthCheck) {
         Set<SqlProxy> reachableSet = new HashSet<>(reachableList);
         boolean degrade = false;
         boolean recover = false;
@@ -164,13 +173,16 @@ public class RemoteSqlProxyProvider implements SqlProxyProvider {
                     degrade = true;
                 }
             } else if (fallbackActive) {
-                //az 集合已有可达节点：连续若干次健康检查通过才切回
-                int required = requiredRecoverCheckCount();
-                recoverCount++;
-                if (recoverCount >= required) {
-                    recoverCount = 0;
-                    fallbackActive = false;
-                    recover = true;
+                //业务失败快照可以触发降级，但不增加或清空连续健康检查的恢复计数
+                if (healthCheck) {
+                    //az 集合已有可达节点：连续若干次健康检查通过才切回
+                    int required = requiredRecoverCheckCount();
+                    recoverCount++;
+                    if (recoverCount >= required) {
+                        recoverCount = 0;
+                        fallbackActive = false;
+                        recover = true;
+                    }
                 }
             } else {
                 recoverCount = 0;
