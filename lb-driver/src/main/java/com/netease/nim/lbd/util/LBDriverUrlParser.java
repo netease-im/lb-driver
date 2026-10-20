@@ -222,11 +222,11 @@ public class LBDriverUrlParser {
         }
         if (trimmed.isEmpty()) {
             if (urlValue != null) {
-                logger.info("system property {} is empty, url param {} will not be used", propertyName, name);
+                logger.debug("system property {} is empty, url param {} will not be used", propertyName, name);
             }
             return null;
         }
-        logger.info("system property {} = {} overrides url param {}, value of url param = {}",
+        logger.debug("system property {} = {} overrides url param {}, value of url param = {}",
                 propertyName, trimmed, name, urlValue);
         return trimmed;
     }
