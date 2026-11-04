@@ -96,8 +96,6 @@ public class SqlProxyListResolver {
         }
         if (clientFeatureLevel < ClientFeatureLevel.MIN_LEVEL_FOR_AZ) {
             //老客户端拿不到兜底能力，只能下发默认集合，否则本可用区故障时它会退化成全部失败
-            logger.info("client feature level too low for az policy, level = {}, schema = {}, azParam = {}",
-                    clientFeatureLevel, schemaConfig.getSchema(), azParam);
             return new Result(ProxyPolicy.DEFAULT, null, defaultProxyList);
         }
         //
